@@ -9,7 +9,7 @@
     "assembly": {
         "name": "LogLib2",
         "package": "net.nosial.loglib2",
-        "version": "1.0.0",
+        "version": "1.0.1",
         "uuid": "11ac2c4d-94e5-4cc1-a2d3-054ac3f425b4"
     },
     "build": {
