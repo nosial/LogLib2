@@ -4,9 +4,6 @@
             "extension": "php",
             "minimum_version": "8.0",
             "maximum_version": "8.2"
-        },
-        "options": {
-            "create_symlink": true
         }
     },
     "assembly": {
@@ -24,6 +21,13 @@
             "ASSEMBLY_VERSION": "%ASSEMBLY.VERSION%",
             "ASSEMBLY_UID": "%ASSEMBLY.UID%"
         },
+        "dependencies": [
+            {
+                "name": "net.nosial.optslib",
+                "version": "latest",
+                "source": "nosial/libs.opts=latest@n64"
+            }
+        ],
         "configurations": [
             {
                 "name": "release",
