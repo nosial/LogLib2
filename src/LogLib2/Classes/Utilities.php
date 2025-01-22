@@ -115,7 +115,8 @@
 
             return match(strtolower(gettype($input)))
             {
-                'boolean', 'integer', 'double', 'float', 'string', 'null' => $input,
+                'boolean', 'integer', 'double', 'float', 'string' => $input,
+                'null' => 'null',
                 default => sprintf('[%s]', strtoupper(gettype($input))),
             };
         }
