@@ -23,17 +23,22 @@
          *
          * @param string $name The name of the exception.
          * @param string $message The exception message.
-         * @param int|null $code The exception code, or null if not specified.
+         * @param string|int|null $code The exception code, or null if not specified. If a string is provided, it will be converted to an integer.
          * @param string|null $file The file name, or null if not specified.
          * @param string|int|null $line The line number, or null if not specified. If a string is provided, it will be converted to an integer.
          * @param StackTrace[]|null $trace The array of StackTrace instances, or null if not provided.
          * @param ExceptionDetails|null $previous The previous exception, or null if not specified.
          */
-        public function __construct(string $name, string $message, ?int $code=null, ?string $file=null, null|string|int $line=null, ?array $trace=null, ?ExceptionDetails $previous=null)
+        public function __construct(string $name, string $message, null|string|int $code=null, ?string $file=null, null|string|int $line=null, ?array $trace=null, ?ExceptionDetails $previous=null)
         {
             if(is_string($line))
             {
                 $line = (int)$line;
+            }
+
+            if(is_string($code))
+            {
+                $code = (int)$code;
             }
 
             $this->name = $name;

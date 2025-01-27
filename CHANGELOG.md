@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Minor changes to the project
 
 ### Changed
- - ExceptionDetails now accepts a string as a type for the $line parameter, this will automatically
+ - ExceptionDetails now accepts a string as a type for the $line and $code parameter, this will automatically
    convert the string to an integer.
 
 
