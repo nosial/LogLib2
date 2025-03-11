@@ -23,10 +23,25 @@ Aside from Console logging, all other handlers supports up to 5 different log fo
 LogLib2 is designed to be silent-failing, this means that if an error occurs while logging an event, the library will
 silently fail and continue to log events, this is to prevent the application from crashing due to a logging error.
 
+## Community
+
+This project and many others from Nosial are available on multiple publicly available and free git repositories at
+
+- [n64](https://git.n64.cc/nosial/loglib2)
+- [GitHub](https://github.com/nosial/loglib2)
+- [Codeberg](https://codeberg.org/nosial/loglib2)
+
+Issues & Pull Requests are frequently checked and to be referenced accordingly in commits and changes, Nosial remains
+dedicated to keep these repositories up to date when possible.
+
+For questions & discussions see the public Telegram community at [@NosialDiscussions](https://t.me/NosialDiscussions).
+We do encourage community support and discussions, please be respectful and follow the rules of the community.
+
 ## Table of Contents
 
 <!-- TOC -->
 * [LogLib2](#loglib2)
+  * [Community](#community)
   * [Table of Contents](#table-of-contents)
   * [Installation](#installation)
   * [Compiling](#compiling)
