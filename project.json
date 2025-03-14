@@ -9,7 +9,7 @@
     "assembly": {
         "name": "LogLib2",
         "package": "net.nosial.loglib2",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "uuid": "11ac2c4d-94e5-4cc1-a2d3-054ac3f425b4"
     },
     "build": {
@@ -25,7 +25,7 @@
             {
                 "name": "net.nosial.optslib",
                 "version": "latest",
-                "source": "nosial/libs.opts=latest@n64"
+                "source": "nosial/optslib=latest@github"
             }
         ],
         "configurations": [
