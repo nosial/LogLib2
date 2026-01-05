@@ -1,0 +1,25 @@
+source: src/LogLib2
+default_build: release
+update_source: nosial/loglib2@n64
+repository:
+  name: n64
+  type: github
+  host: git.n64.cc
+  ssl: true
+assembly:
+  name: LogLib2
+  package: net.nosial.loglib2
+  version: 1.0.4
+dependencies:
+  net.nosial.optslib: nosial/optslib@github
+build_configurations:
+  -
+    name: release
+    output: 'build/release/${ASSEMBLY.PACKAGE}.ncc'
+    type: ncc
+  -
+    name: debug
+    output: 'build/debug/${ASSEMBLY.PACKAGE}.ncc'
+    type: ncc
+    definitions:
+      DEBUG: '1'
