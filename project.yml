@@ -15,11 +15,11 @@ dependencies:
 build_configurations:
   -
     name: release
-    output: 'build/release/${ASSEMBLY.PACKAGE}.ncc'
+    output: 'target/release/${ASSEMBLY.PACKAGE}.ncc'
     type: ncc
   -
     name: debug
-    output: 'build/debug/${ASSEMBLY.PACKAGE}.ncc'
+    output: 'target/debug/${ASSEMBLY.PACKAGE}.ncc'
     type: ncc
     definitions:
       DEBUG: '1'
