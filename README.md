@@ -88,21 +88,15 @@ We do encourage community support and discussions, please be respectful and foll
 To install LogLib2, you can add the project as a dependency to your project.json file, for example
 
 From the n64 repository
-```json
-{
-  "name": "net.nosial.loglib2",
-  "version": "latest",
-  "source": "nosial/libs.log2=latest@n64"
-}
+```yaml
+dependencies:
+  net.nosial.loglib2: nosial/loglib2@n64
 ```
 
 From the github repository
-```json
-{
-  "name": "net.nosial.loglib2",
-  "version": "latest",
-  "source": "nosial/loglib2=latest@github"
-}
+```yaml
+dependencies:
+  net.nosial.loglib2: nosial/loglib2@github
 ```
 
 To install the library from the command line, you can use the following command, use the appropriate source for the
@@ -110,7 +104,7 @@ repository you want to install from, you may also use the `--build-source` flag 
 source rather than downloading a pre-built package if one is available.
 
 ```bash
-ncc package install --package=nosial/loglib2=latest@github
+ncc --install=nosial/loglib2=latest@github
 ```
 
 
@@ -141,7 +135,7 @@ ncc build --config=release
 To install the library, you can use the following command
 
 ```bash
-ncc package install --package=build/release/net.nosial.loglib2.ncc --skip-dependencies --build-source --reinstall -y
+ncc --install=build/release/net.nosial.loglib2.ncc --reinstall -y
 ```
 
 ------------------------------------------------------------------------------------------------------------------------
