@@ -30,8 +30,8 @@
             $socketKey = $application->getUdpConfiguration()->getHost() . ':' . $application->getUdpConfiguration()->getPort();
             if(!isset(self::$sockets[$socketKey]))
             {
-                self::$sockets[$application->getName()] = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
-                if(self::$sockets[$application->getName()] === false)
+                self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+                if(self::$sockets[$socketKey] === false)
                 {
                     unset(self::$sockets[$socketKey]);
                     return false;
