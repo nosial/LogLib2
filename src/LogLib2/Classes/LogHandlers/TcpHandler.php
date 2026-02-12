@@ -32,17 +32,23 @@
                 self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
                 if(self::$sockets[$socketKey] === false)
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return false;
                 }
 
                 if(!@socket_connect(self::$sockets[$socketKey], $application->getTcpConfiguration()->getHost(), $application->getTcpConfiguration()->getPort()))
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return false;
                 }
 
                 return true;
+            }
+
+            // If socket is null, skip availability check.
+            if(self::$sockets[$socketKey] === null)
+            {
+                return false;
             }
 
             return true;
@@ -74,15 +80,21 @@
                 self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
                 if(self::$sockets[$socketKey] === false)
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return;
                 }
 
                 if(!@socket_connect(self::$sockets[$socketKey], $application->getTcpConfiguration()->getHost(), $application->getTcpConfiguration()->getPort()))
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return;
                 }
+            }
+
+            // If socket is null, skip socket communication entirely.
+            if(self::$sockets[$socketKey] === null)
+            {
+                return;
             }
 
             // If the request fails, try to reconnect and send the message again. if it fails again, fail silently.
@@ -90,7 +102,7 @@
             {
                 if(!@socket_connect(self::$sockets[$socketKey], $application->getTcpConfiguration()->getHost(), $application->getTcpConfiguration()->getPort()))
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return;
                 }
 

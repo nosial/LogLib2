@@ -33,9 +33,15 @@
                 self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
                 if(self::$sockets[$socketKey] === false)
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return false;
                 }
+            }
+
+            // If socket is null, skip availability check.
+            if(self::$sockets[$socketKey] === null)
+            {
+                return false;
             }
 
             return true;
@@ -67,9 +73,15 @@
                 self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
                 if(self::$sockets[$socketKey] === false)
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
                     return;
                 }
+            }
+
+            // If socket is null, skip socket communication entirely.
+            if(self::$sockets[$socketKey] === null)
+            {
+                return;
             }
 
             // If the request fails, try to reconnect and send the message again. if it fails again, fail silently.
@@ -77,7 +89,8 @@
             {
                 if(!@socket_connect(self::$sockets[$socketKey], $application->getUdpConfiguration()->getHost(), $application->getUdpConfiguration()->getPort()))
                 {
-                    unset(self::$sockets[$socketKey]);
+                    self::$sockets[$socketKey] = null;
+                    return;
                 }
 
                 @socket_sendto(self::$sockets[$socketKey], $message, strlen($message), 0, $application->getUdpConfiguration()->getHost(), $application->getUdpConfiguration()->getPort());
