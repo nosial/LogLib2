@@ -9,6 +9,9 @@
 
     class HttpHandler implements LogHandlerInterface
     {
+        private static array $curlHandles = [];
+        private static array $failedEndpoints = [];
+
         /**
          * Checks if the current PHP environment is available for execution in CLI mode.
          *
@@ -26,6 +29,12 @@
                 return false;
             }
 
+            $endpoint = $application->getHttpConfiguration()->getEndpoint();
+            if(isset(self::$failedEndpoints[$endpoint]))
+            {
+                return false;
+            }
+
             return true;
         }
 
@@ -34,6 +43,13 @@
          */
         public static function handleEvent(Application $application, Event $event): void
         {
+            $endpoint = $application->getHttpConfiguration()->getEndpoint();
+            
+            if(isset(self::$failedEndpoints[$endpoint]))
+            {
+                return;
+            }
+
             $header = match($application->getHttpConfiguration()->getLogFormat())
             {
                 LogFormat::JSONL => 'Content-Type: application/json',
@@ -52,12 +68,33 @@
                 $message .= PHP_EOL;
             }
 
-            // Note, no exception handling is done here. If the HTTP request fails, it will fail silently.
-            $ch = curl_init($application->getHttpConfiguration()->getEndpoint());
-            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $message);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, [$header]);
-            curl_exec($ch);
-            curl_close($ch);
+            if(!isset(self::$curlHandles[$endpoint]))
+            {
+                self::$curlHandles[$endpoint] = curl_init($endpoint);
+                if(self::$curlHandles[$endpoint] === false)
+                {
+                    self::$failedEndpoints[$endpoint] = true;
+                    self::$curlHandles[$endpoint] = null;
+                    return;
+                }
+                curl_setopt(self::$curlHandles[$endpoint], CURLOPT_CUSTOMREQUEST, 'POST');
+                curl_setopt(self::$curlHandles[$endpoint], CURLOPT_RETURNTRANSFER, true);
+                curl_setopt(self::$curlHandles[$endpoint], CURLOPT_TIMEOUT_MS, 5000);
+            }
+
+            if(self::$curlHandles[$endpoint] === null)
+            {
+                return;
+            }
+
+            curl_setopt(self::$curlHandles[$endpoint], CURLOPT_POSTFIELDS, $message);
+            curl_setopt(self::$curlHandles[$endpoint], CURLOPT_HTTPHEADER, [$header]);
+            
+            if(@curl_exec(self::$curlHandles[$endpoint]) === false)
+            {
+                self::$failedEndpoints[$endpoint] = true;
+                curl_close(self::$curlHandles[$endpoint]);
+                self::$curlHandles[$endpoint] = null;
+            }
         }
     }
