@@ -9,7 +9,7 @@ repository:
 assembly:
   name: LogLib2
   package: net.nosial.loglib2
-  version: 1.0.4
+  version: 1.0.5
 dependencies:
   net.nosial.optslib: nosial/optslib@github
 build_configurations:
