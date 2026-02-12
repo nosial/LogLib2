@@ -9,9 +9,9 @@ docs:
 	phpdoc --config phpdoc.dist.xml
 
 clean:
-	rm target/release/net.nosial.loglib2.ncc
-	rm target/debug/net.nosial.loglib2.ncc
-	rm target/docs
-	rm target/cache
+	rm -f target/release/net.nosial.loglib2.ncc
+	rm -f target/debug/net.nosial.loglib2.ncc
+	rm -rf target/docs
+	rm -rf target/cache
 
 .PHONY: all install clean docs
