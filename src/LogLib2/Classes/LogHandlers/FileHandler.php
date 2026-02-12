@@ -14,6 +14,8 @@
     {
         private const string CSV_HEADERS = "timestamp,level,message,trace,exception";
         private static array $fileLocks = [];
+        private static array $cachedFilePaths = [];
+        private static ?string $currentDate = null;
 
         /**
          * @inheritDoc
@@ -81,6 +83,20 @@
          */
         private static function getLogFilePath(Application $application): string
         {
+            $currentDate = date('Y-m-d');
+            
+            if(self::$currentDate !== $currentDate)
+            {
+                self::$currentDate = $currentDate;
+                self::$cachedFilePaths = [];
+            }
+
+            $cacheKey = $application->getName() . ':' . $application->getFileConfiguration()->getLogFormat()->name;
+            if(isset(self::$cachedFilePaths[$cacheKey]))
+            {
+                return self::$cachedFilePaths[$cacheKey];
+            }
+
             $extension = match($application->getFileConfiguration()->getLogFormat())
             {
                 LogFormat::JSONL => 'jsonl',
@@ -90,7 +106,9 @@
                 LogFormat::HTML => 'html',
             };
 
-            return Utilities::getEnvironmentLogPath($application) . DIRECTORY_SEPARATOR .
-                sprintf('%s-%s.%s', Utilities::sanitizeFileName($application->getName()), (new DateTime())->format('Y-m-d'), $extension);
+            self::$cachedFilePaths[$cacheKey] = Utilities::getEnvironmentLogPath($application) . DIRECTORY_SEPARATOR .
+                sprintf('%s-%s.%s', Utilities::sanitizeFileName($application->getName()), self::$currentDate, $extension);
+
+            return self::$cachedFilePaths[$cacheKey];
         }
     }
