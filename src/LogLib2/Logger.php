@@ -38,8 +38,10 @@
         private static bool $handlersRegistered=false;
         private static ?Logger $runtimeLogger=null;
         private static int $backtraceLevel=3;
+        private static ?LogLevel $environmentLogLevel=null;
 
         private Application $application;
+        private array $handlerAvailability = [];
 
         /**
          * Constructs a new instance with the provided application name.
@@ -70,7 +72,8 @@
         /**
          * Retrieves the Application instance used by the Logger.
          *
-         * @return Application The Application instance used by the Logger.
+         * @param string $message
+         * @return void The Application instance used by the Logger.
          */
         public function debug(string $message): void
         {
@@ -144,26 +147,50 @@
          */
         private function handleEvent(Event $event): void
         {
-            // Return early if the given LogLevel not allowed to be processed with the application's given log level.
-            if(!Utilities::getEnvironmentLogLevel()->levelAllowed($event->getLevel()))
+            if(self::$environmentLogLevel === null)
+            {
+                self::$environmentLogLevel = Utilities::getEnvironmentLogLevel();
+            }
+
+            if(!self::$environmentLogLevel->levelAllowed($event->getLevel()))
             {
                 return;
             }
 
-            // Handle the event with the appropriate log handlers.
-            if($this->application->getConsoleConfiguration()->isEnabled() && ConsoleHandler::isAvailable($this->application))
+            if($this->application->getConsoleConfiguration()->isEnabled())
             {
-                ConsoleHandler::handleEvent($this->application, $event);
+                if(!isset($this->handlerAvailability[ConsoleHandler::class]))
+                {
+                    $this->handlerAvailability[ConsoleHandler::class] = ConsoleHandler::isAvailable($this->application);
+                }
+                if($this->handlerAvailability[ConsoleHandler::class])
+                {
+                    ConsoleHandler::handleEvent($this->application, $event);
+                }
             }
 
-            if($this->application->getDescriptorConfiguration()->isEnabled() && DescriptorHandler::isAvailable($this->application))
+            if($this->application->getDescriptorConfiguration()->isEnabled())
             {
-                DescriptorHandler::handleEvent($this->application, $event);
+                if(!isset($this->handlerAvailability[DescriptorHandler::class]))
+                {
+                    $this->handlerAvailability[DescriptorHandler::class] = DescriptorHandler::isAvailable($this->application);
+                }
+                if($this->handlerAvailability[DescriptorHandler::class])
+                {
+                    DescriptorHandler::handleEvent($this->application, $event);
+                }
             }
 
-            if($this->application->getFileConfiguration()->isEnabled() && FileHandler::isAvailable($this->application))
+            if($this->application->getFileConfiguration()->isEnabled())
             {
-                FileHandler::handleEvent($this->application, $event);
+                if(!isset($this->handlerAvailability[FileHandler::class]))
+                {
+                    $this->handlerAvailability[FileHandler::class] = FileHandler::isAvailable($this->application);
+                }
+                if($this->handlerAvailability[FileHandler::class])
+                {
+                    FileHandler::handleEvent($this->application, $event);
+                }
             }
 
             if($this->application->getHttpConfiguration()->isEnabled() && HttpHandler::isAvailable($this->application))
