@@ -15,7 +15,6 @@
          */
         public static function isAvailable(Application $application): bool
         {
-            // Check if the TCP configuration is valid.
             if(!filter_var($application->getTcpConfiguration()->getHost(), FILTER_VALIDATE_IP))
             {
                 return false;
@@ -29,23 +28,23 @@
             $socketKey = $application->getTcpConfiguration()->getHost() . ':' . $application->getTcpConfiguration()->getPort();
             if(!isset(self::$sockets[$socketKey]))
             {
-                self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+                $errorCode = 0;
+                $errorMessage = '';
+                self::$sockets[$socketKey] = @pfsockopen(
+                    $application->getTcpConfiguration()->getHost(),
+                    $application->getTcpConfiguration()->getPort(),
+                    $errorCode,
+                    $errorMessage,
+                    (float)ini_get('default_socket_timeout')
+                );
                 if(self::$sockets[$socketKey] === false)
                 {
                     self::$sockets[$socketKey] = null;
                     return false;
                 }
-
-                if(!@socket_connect(self::$sockets[$socketKey], $application->getTcpConfiguration()->getHost(), $application->getTcpConfiguration()->getPort()))
-                {
-                    self::$sockets[$socketKey] = null;
-                    return false;
-                }
-
                 return true;
             }
 
-            // If socket is null, skip availability check.
             if(self::$sockets[$socketKey] === null)
             {
                 return false;
@@ -68,45 +67,48 @@
                 $message .= PHP_EOL;
             }
 
-            // If the message is too long, fail silently.
             if(strlen($message) > 65535)
             {
                 return;
             }
 
-            $socketKey = $application->getTcpConfiguration()->getHost() . ':' . $application->getTcpConfiguration()->getPort();
+            $host = $application->getTcpConfiguration()->getHost();
+            $port = $application->getTcpConfiguration()->getPort();
+            $socketKey = $host . ':' . $port;
+            $timeout = (float)ini_get('default_socket_timeout');
+
             if(!isset(self::$sockets[$socketKey]))
             {
-                self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+                $errorCode = 0;
+                $errorMessage = '';
+                self::$sockets[$socketKey] = @pfsockopen($host, $port, $errorCode, $errorMessage, $timeout);
                 if(self::$sockets[$socketKey] === false)
                 {
                     self::$sockets[$socketKey] = null;
                     return;
                 }
-
-                if(!@socket_connect(self::$sockets[$socketKey], $application->getTcpConfiguration()->getHost(), $application->getTcpConfiguration()->getPort()))
-                {
-                    self::$sockets[$socketKey] = null;
-                    return;
-                }
             }
 
-            // If socket is null, skip socket communication entirely.
             if(self::$sockets[$socketKey] === null)
             {
                 return;
             }
 
-            // If the request fails, try to reconnect and send the message again. if it fails again, fail silently.
-            if(@socket_send(self::$sockets[$socketKey], $message, strlen($message), 0) === false)
+            if(@fwrite(self::$sockets[$socketKey], $message) === false)
             {
-                if(!@socket_connect(self::$sockets[$socketKey], $application->getTcpConfiguration()->getHost(), $application->getTcpConfiguration()->getPort()))
+                @fclose(self::$sockets[$socketKey]);
+                $errorCode = 0;
+                $errorMessage = '';
+                $newSocket = @pfsockopen($host, $port, $errorCode, $errorMessage, $timeout);
+                if($newSocket !== false)
+                {
+                    self::$sockets[$socketKey] = $newSocket;
+                    @fwrite($newSocket, $message);
+                }
+                else
                 {
                     self::$sockets[$socketKey] = null;
-                    return;
                 }
-
-                @socket_send(self::$sockets[$socketKey], $message, strlen($message), 0);
             }
         }
     }

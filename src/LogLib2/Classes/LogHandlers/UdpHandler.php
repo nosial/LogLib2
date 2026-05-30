@@ -15,7 +15,6 @@
          */
         public static function isAvailable(Application $application): bool
         {
-            // Check if the UDP configuration is valid.
             if(!filter_var($application->getUdpConfiguration()->getHost(), FILTER_VALIDATE_IP))
             {
                 return false;
@@ -26,19 +25,26 @@
                 return false;
             }
 
-            // If the socket does not exist, create it.
             $socketKey = $application->getUdpConfiguration()->getHost() . ':' . $application->getUdpConfiguration()->getPort();
             if(!isset(self::$sockets[$socketKey]))
             {
-                self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+                $errorCode = 0;
+                $errorMessage = '';
+                self::$sockets[$socketKey] = @pfsockopen(
+                    'udp://' . $application->getUdpConfiguration()->getHost(),
+                    $application->getUdpConfiguration()->getPort(),
+                    $errorCode,
+                    $errorMessage,
+                    (float)ini_get('default_socket_timeout')
+                );
                 if(self::$sockets[$socketKey] === false)
                 {
                     self::$sockets[$socketKey] = null;
                     return false;
                 }
+                return true;
             }
 
-            // If socket is null, skip availability check.
             if(self::$sockets[$socketKey] === null)
             {
                 return false;
@@ -61,16 +67,21 @@
                 $message .= PHP_EOL;
             }
 
-            // If the message is too long, fail silently.
             if(strlen($message) > 65535)
             {
                 return;
             }
 
-            $socketKey = $application->getUdpConfiguration()->getHost() . ':' . $application->getUdpConfiguration()->getPort();
+            $host = $application->getUdpConfiguration()->getHost();
+            $port = $application->getUdpConfiguration()->getPort();
+            $socketKey = $host . ':' . $port;
+            $timeout = (float)ini_get('default_socket_timeout');
+
             if(!isset(self::$sockets[$socketKey]))
             {
-                self::$sockets[$socketKey] = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+                $errorCode = 0;
+                $errorMessage = '';
+                self::$sockets[$socketKey] = @pfsockopen('udp://' . $host, $port, $errorCode, $errorMessage, $timeout);
                 if(self::$sockets[$socketKey] === false)
                 {
                     self::$sockets[$socketKey] = null;
@@ -78,22 +89,26 @@
                 }
             }
 
-            // If socket is null, skip socket communication entirely.
             if(self::$sockets[$socketKey] === null)
             {
                 return;
             }
 
-            // If the request fails, try to reconnect and send the message again. if it fails again, fail silently.
-            if(@socket_sendto(self::$sockets[$socketKey], $message, strlen($message), 0, $application->getUdpConfiguration()->getHost(), $application->getUdpConfiguration()->getPort()) === false)
+            if(@fwrite(self::$sockets[$socketKey], $message) === false)
             {
-                if(!@socket_connect(self::$sockets[$socketKey], $application->getUdpConfiguration()->getHost(), $application->getUdpConfiguration()->getPort()))
+                @fclose(self::$sockets[$socketKey]);
+                $errorCode = 0;
+                $errorMessage = '';
+                $newSocket = @pfsockopen('udp://' . $host, $port, $errorCode, $errorMessage, $timeout);
+                if($newSocket !== false)
+                {
+                    self::$sockets[$socketKey] = $newSocket;
+                    @fwrite($newSocket, $message);
+                }
+                else
                 {
                     self::$sockets[$socketKey] = null;
-                    return;
                 }
-
-                @socket_sendto(self::$sockets[$socketKey], $message, strlen($message), 0, $application->getUdpConfiguration()->getHost(), $application->getUdpConfiguration()->getPort());
             }
         }
     }
