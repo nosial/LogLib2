@@ -20,6 +20,7 @@
     use LogLib2\Enums\SmtpEncryption;
     use LogLib2\Enums\TimestampFormat;
     use LogLib2\Enums\TraceFormat;
+    use LogLib2\Interfaces\LogHandlerInterface;
     use LogLib2\Objects\Application;
     use LogLib2\Objects\Configurations\ConsoleConfiguration;
     use LogLib2\Objects\Configurations\DescriptorConfiguration;
@@ -49,9 +50,12 @@
         private static ?Logger $runtimeLogger=null;
         private static int $backtraceLevel=3;
         private static ?LogLevel $environmentLogLevel=null;
+        private static bool $dispatching=false;
+        private static array $reportedFailures=[];
 
         private Application $application;
         private array $handlerAvailability = [];
+        private array $failedHandlers = [];
 
         /**
          * Constructs a new instance with the provided application name.
@@ -90,7 +94,14 @@
          */
         public function debug(string $message): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::DEBUG, $message));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::DEBUG, $message));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -100,7 +111,14 @@
          */
         public function verbose(string $message): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::VERBOSE, $message));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::VERBOSE, $message));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -110,7 +128,14 @@
          */
         public function info(string $message): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::INFO, $message));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::INFO, $message));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -120,7 +145,14 @@
          */
         public function warning(string $message, null|ExceptionDetails|Throwable $e=null): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::WARNING, $message, $e));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::WARNING, $message, $e));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -130,7 +162,14 @@
          */
         public function error(string $message, null|ExceptionDetails|Throwable $e=null): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::ERROR, $message, $e));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::ERROR, $message, $e));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -140,7 +179,14 @@
          */
         public function critical(string $message, null|ExceptionDetails|Throwable $e=null): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::CRITICAL, $message, $e));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::CRITICAL, $message, $e));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -160,81 +206,103 @@
          */
         private function handleEvent(Event $event): void
         {
-            if(self::$environmentLogLevel === null)
-            {
-                self::$environmentLogLevel = Utilities::getEnvironmentLogLevel();
-            }
-
-            if(!self::$environmentLogLevel->levelAllowed($event->getLevel()))
+            // Events raised while another event is being handled (e.g. a PHP warning emitted by a handler and caught
+            // by the runtime error handler) are dropped, otherwise a failing handler could recurse until the stack
+            // is exhausted, which cannot be recovered from.
+            if(self::$dispatching)
             {
                 return;
             }
 
-            if($this->application->getConsoleConfiguration()->isEnabled())
+            self::$dispatching = true;
+
+            try
             {
-                if(!isset($this->handlerAvailability[ConsoleHandler::class]))
+                if(self::$environmentLogLevel === null)
                 {
-                    $this->handlerAvailability[ConsoleHandler::class] = ConsoleHandler::isAvailable($this->application);
+                    self::$environmentLogLevel = Utilities::getEnvironmentLogLevel();
                 }
-                if($this->handlerAvailability[ConsoleHandler::class])
+
+                if(!self::$environmentLogLevel->levelAllowed($event->getLevel()))
                 {
-                    ConsoleHandler::handleEvent($this->application, $event);
+                    return;
                 }
+
+                $this->dispatch(ConsoleHandler::class, $this->application->getConsoleConfiguration()->isEnabled(), $event, true);
+                $this->dispatch(DescriptorHandler::class, $this->application->getDescriptorConfiguration()->isEnabled(), $event, true);
+                $this->dispatch(FileHandler::class, $this->application->getFileConfiguration()->isEnabled(), $event, true);
+                $this->dispatch(HttpHandler::class, $this->application->getHttpConfiguration()->isEnabled(), $event);
+                $this->dispatch(TcpHandler::class, $this->application->getTcpConfiguration()->isEnabled(), $event);
+                $this->dispatch(UdpHandler::class, $this->application->getUdpConfiguration()->isEnabled(), $event);
+                $this->dispatch(TelegramHandler::class, $this->application->getTelegramConfiguration()->isEnabled(), $event);
+                $this->dispatch(EmailHandler::class, $this->application->getEmailConfiguration()->isEnabled(), $event);
+                $this->dispatch(DiscordHandler::class, $this->application->getDiscordConfiguration()->isEnabled(), $event);
+            }
+            finally
+            {
+                self::$dispatching = false;
+            }
+        }
+
+        /**
+         * Passes the event to a single log handler, isolating the remaining handlers and the caller from any failure.
+         * A handler that throws is disabled for this logger instance and the failure is reported once via error_log().
+         *
+         * @param class-string<LogHandlerInterface> $handler The log handler class.
+         * @param bool $enabled True if the handler is enabled in the configuration.
+         * @param Event $event The event to handle.
+         * @param bool $cacheAvailability True to only check the handler's availability once, for handlers whose
+         *                                availability does not change at runtime.
+         */
+        private function dispatch(string $handler, bool $enabled, Event $event, bool $cacheAvailability=false): void
+        {
+            if(!$enabled || isset($this->failedHandlers[$handler]))
+            {
+                return;
             }
 
-            if($this->application->getDescriptorConfiguration()->isEnabled())
+            try
             {
-                if(!isset($this->handlerAvailability[DescriptorHandler::class]))
+                if($cacheAvailability)
                 {
-                    $this->handlerAvailability[DescriptorHandler::class] = DescriptorHandler::isAvailable($this->application);
+                    $available = $this->handlerAvailability[$handler] ??= $handler::isAvailable($this->application);
                 }
-                if($this->handlerAvailability[DescriptorHandler::class])
+                else
                 {
-                    DescriptorHandler::handleEvent($this->application, $event);
+                    $available = $handler::isAvailable($this->application);
                 }
-            }
 
-            if($this->application->getFileConfiguration()->isEnabled())
-            {
-                if(!isset($this->handlerAvailability[FileHandler::class]))
+                if($available)
                 {
-                    $this->handlerAvailability[FileHandler::class] = FileHandler::isAvailable($this->application);
-                }
-                if($this->handlerAvailability[FileHandler::class])
-                {
-                    FileHandler::handleEvent($this->application, $event);
+                    $handler::handleEvent($this->application, $event);
                 }
             }
-
-            if($this->application->getHttpConfiguration()->isEnabled() && HttpHandler::isAvailable($this->application))
+            catch(Throwable $e)
             {
-                HttpHandler::handleEvent($this->application, $event);
+                $this->failedHandlers[$handler] = true;
+                self::reportFailure($handler, $e, true);
+            }
+        }
+
+        /**
+         * Reports a failure within the logger to PHP's error log, each source is only reported once per process.
+         * error_log() is used as it does not pass through the logger or the runtime error handler.
+         *
+         * @param string $source The class that failed.
+         * @param Throwable $e The failure.
+         * @param bool $disabled True if the source has been disabled as a result of the failure.
+         */
+        private static function reportFailure(string $source, Throwable $e, bool $disabled=false): void
+        {
+            if(isset(self::$reportedFailures[$source]))
+            {
+                return;
             }
 
-            if($this->application->getTcpConfiguration()->isEnabled() && TcpHandler::isAvailable($this->application))
-            {
-                TcpHandler::handleEvent($this->application, $event);
-            }
-
-            if($this->application->getUdpConfiguration()->isEnabled() && UdpHandler::isAvailable($this->application))
-            {
-                UdpHandler::handleEvent($this->application, $event);
-            }
-
-            if($this->application->getTelegramConfiguration()->isEnabled() && TelegramHandler::isAvailable($this->application))
-            {
-                TelegramHandler::handleEvent($this->application, $event);
-            }
-
-            if($this->application->getEmailConfiguration()->isEnabled() && EmailHandler::isAvailable($this->application))
-            {
-                EmailHandler::handleEvent($this->application, $event);
-            }
-
-            if($this->application->getDiscordConfiguration()->isEnabled() && DiscordHandler::isAvailable($this->application))
-            {
-                DiscordHandler::handleEvent($this->application, $event);
-            }
+            self::$reportedFailures[$source] = true;
+            @error_log(sprintf('LogLib2: %s failed%s: %s: %s in %s:%d',
+                $source, $disabled ? ' and has been disabled for this logger' : ' to handle an event', get_class($e), $e->getMessage(), $e->getFile(), $e->getLine()
+            ));
         }
 
         /**
@@ -244,17 +312,21 @@
          */
         public function getAvailability(): array
         {
-            return [
-                ConsoleHandler::class => ConsoleHandler::isAvailable($this->application),
-                DescriptorConfiguration::class => DescriptorHandler::isAvailable($this->application),
-                FileHandler::class => FileHandler::isAvailable($this->application),
-                HttpHandler::class => HttpHandler::isAvailable($this->application),
-                TcpHandler::class => TcpHandler::isAvailable($this->application),
-                UdpHandler::class => UdpHandler::isAvailable($this->application),
-                TelegramHandler::class => TelegramHandler::isAvailable($this->application),
-                EmailHandler::class => EmailHandler::isAvailable($this->application),
-                DiscordHandler::class => DiscordHandler::isAvailable($this->application)
-            ];
+            $availability = [];
+            foreach([ConsoleHandler::class, DescriptorHandler::class, FileHandler::class, HttpHandler::class, TcpHandler::class,
+                        UdpHandler::class, TelegramHandler::class, EmailHandler::class, DiscordHandler::class] as $handler)
+            {
+                try
+                {
+                    $availability[$handler] = !isset($this->failedHandlers[$handler]) && $handler::isAvailable($this->application);
+                }
+                catch(Throwable)
+                {
+                    $availability[$handler] = false;
+                }
+            }
+
+            return $availability;
         }
 
         /**
@@ -832,12 +904,13 @@
                 $logger->error($e->getMessage(), $e);
             });
 
-            // Register to catch fatal errors.
+            // Register to catch fatal errors, these bypass the error handler above. error_get_last() also returns
+            // non-fatal errors that were already handled (e.g. warnings), which must not be reported again as critical.
             register_shutdown_function(function() use ($logger)
             {
                 $error = error_get_last();
 
-                if($error !== null)
+                if($error !== null && ($error['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR)) !== 0)
                 {
                     $logger->critical($error['message'], Utilities::detailsFromError($error['type'], $error['message'], $error['file'], $error['line']));
                 }
