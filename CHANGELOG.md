@@ -5,8 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.0.7] - Ongoing
+## [1.0.7] - 2026-10-05
 
+### Added
+ - Added TelegramHandler & TelegramConfiguration for pushing log events to a Telegram chat/topic using a bot, filtered
+   to `ERR` and `CRT` events by default
+ - Added EmailHandler & EmailConfiguration for sending log events as emails using SMTP (with optional STARTTLS/TLS
+   and authentication), filtered to `ERR` and `CRT` events by default
+ - Added DiscordHandler & DiscordConfiguration for posting log events to a Discord channel/thread using a webhook,
+   filtered to `ERR` and `CRT` events by default
+
+### Changed
+ - Log handlers are now isolated from each other, a handler that throws is disabled for that logger instance and the
+   failure is reported once via `error_log()` instead of propagating to the caller or preventing other handlers from
+   receiving the event
+ - Events raised while another event is being handled (e.g. PHP warnings emitted by a handler) are dropped to prevent
+   infinite recursion
+ - EmailHandler's timeout now applies to the whole SMTP session rather than each reply
+
+### Fixed
+ - `Logger::getAvailability()` reported the descriptor handler under `DescriptorConfiguration::class` instead of
+   `DescriptorHandler::class`
+ - The shutdown handler registered by `Logger::registerHandlers()` reported the last error of the request as critical
+   even when it was a non-fatal error (e.g. a warning) that had already been logged, it now only reports fatal errors
 
 
 ## [1.0.6] - 2026-05-30
