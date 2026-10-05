@@ -32,6 +32,7 @@ This update introduces new handlers and minor bug fixes
    even when it was a non-fatal error (e.g. a warning) that had already been logged, it now only reports fatal errors
 
 
+
 ## [1.0.6] - 2026-05-30
 
 Refactor TcpHandler and UdpHandler to use pfsockopen for socket management
