@@ -37,6 +37,11 @@
                 return false;
             }
 
+            if(!extension_loaded('mbstring'))
+            {
+                return false;
+            }
+
             $configuration = $application->getTelegramConfiguration();
             if(empty($configuration->getBotToken()) || empty($configuration->getChatId()))
             {
