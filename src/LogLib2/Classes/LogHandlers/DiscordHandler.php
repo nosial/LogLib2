@@ -37,6 +37,11 @@
                 return false;
             }
 
+            if(!extension_loaded('mbstring'))
+            {
+                return false;
+            }
+
             $webhookUrl = $application->getDiscordConfiguration()->getWebhookUrl();
             if($webhookUrl === null || !filter_var($webhookUrl, FILTER_VALIDATE_URL))
             {
