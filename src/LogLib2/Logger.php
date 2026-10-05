@@ -6,22 +6,30 @@
 
     use LogLib2\Classes\LogHandlers\ConsoleHandler;
     use LogLib2\Classes\LogHandlers\DescriptorHandler;
+    use LogLib2\Classes\LogHandlers\DiscordHandler;
+    use LogLib2\Classes\LogHandlers\EmailHandler;
     use LogLib2\Classes\LogHandlers\FileHandler;
     use LogLib2\Classes\LogHandlers\HttpHandler;
     use LogLib2\Classes\LogHandlers\TcpHandler;
+    use LogLib2\Classes\LogHandlers\TelegramHandler;
     use LogLib2\Classes\LogHandlers\UdpHandler;
     use LogLib2\Classes\Utilities;
     use LogLib2\Enums\AnsiFormat;
     use LogLib2\Enums\LogFormat;
     use LogLib2\Enums\LogLevel;
+    use LogLib2\Enums\SmtpEncryption;
     use LogLib2\Enums\TimestampFormat;
     use LogLib2\Enums\TraceFormat;
+    use LogLib2\Interfaces\LogHandlerInterface;
     use LogLib2\Objects\Application;
     use LogLib2\Objects\Configurations\ConsoleConfiguration;
     use LogLib2\Objects\Configurations\DescriptorConfiguration;
+    use LogLib2\Objects\Configurations\DiscordConfiguration;
+    use LogLib2\Objects\Configurations\EmailConfiguration;
     use LogLib2\Objects\Configurations\FileConfiguration;
     use LogLib2\Objects\Configurations\HttpConfiguration;
     use LogLib2\Objects\Configurations\TcpConfiguration;
+    use LogLib2\Objects\Configurations\TelegramConfiguration;
     use LogLib2\Objects\Configurations\UdpConfiguration;
     use LogLib2\Objects\Event;
     use LogLib2\Objects\ExceptionDetails;
@@ -34,14 +42,20 @@
         private static ?FileConfiguration $defaultFileConfiguration=null;
         private static ?HttpConfiguration $defaultHttpConfiguration=null;
         private static ?TcpConfiguration $defaultTcpConfiguration=null;
+        private static ?TelegramConfiguration $defaultTelegramConfiguration=null;
+        private static ?EmailConfiguration $defaultEmailConfiguration=null;
+        private static ?DiscordConfiguration $defaultDiscordConfiguration=null;
         private static ?UdpConfiguration $defaultUdpConfiguration=null;
         private static bool $handlersRegistered=false;
         private static ?Logger $runtimeLogger=null;
         private static int $backtraceLevel=3;
         private static ?LogLevel $environmentLogLevel=null;
+        private static bool $dispatching=false;
+        private static array $reportedFailures=[];
 
         private Application $application;
         private array $handlerAvailability = [];
+        private array $failedHandlers = [];
 
         /**
          * Constructs a new instance with the provided application name.
@@ -56,6 +70,9 @@
             $this->application->setFileConfiguration(self::getDefaultFileConfiguration());
             $this->application->setHttpConfiguration(self::getDefaultHttpConfiguration());
             $this->application->setTcpConfiguration(self::getDefaultTcpConfiguration());
+            $this->application->setTelegramConfiguration(self::getDefaultTelegramConfiguration());
+            $this->application->setEmailConfiguration(self::getDefaultEmailConfiguration());
+            $this->application->setDiscordConfiguration(self::getDefaultDiscordConfiguration());
             $this->application->setUdpConfiguration(self::getDefaultUdpConfiguration());
         }
 
@@ -77,7 +94,14 @@
          */
         public function debug(string $message): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::DEBUG, $message));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::DEBUG, $message));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -87,7 +111,14 @@
          */
         public function verbose(string $message): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::VERBOSE, $message));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::VERBOSE, $message));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -97,7 +128,14 @@
          */
         public function info(string $message): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::INFO, $message));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::INFO, $message));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -107,7 +145,14 @@
          */
         public function warning(string $message, null|ExceptionDetails|Throwable $e=null): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::WARNING, $message, $e));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::WARNING, $message, $e));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -117,7 +162,14 @@
          */
         public function error(string $message, null|ExceptionDetails|Throwable $e=null): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::ERROR, $message, $e));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::ERROR, $message, $e));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -127,7 +179,14 @@
          */
         public function critical(string $message, null|ExceptionDetails|Throwable $e=null): void
         {
-            $this->handleEvent($this->createEvent(LogLevel::CRITICAL, $message, $e));
+            try
+            {
+                $this->handleEvent($this->createEvent(LogLevel::CRITICAL, $message, $e));
+            }
+            catch(Throwable $t)
+            {
+                self::reportFailure(self::class, $t);
+            }
         }
 
         /**
@@ -147,66 +206,103 @@
          */
         private function handleEvent(Event $event): void
         {
-            if(self::$environmentLogLevel === null)
-            {
-                self::$environmentLogLevel = Utilities::getEnvironmentLogLevel();
-            }
-
-            if(!self::$environmentLogLevel->levelAllowed($event->getLevel()))
+            // Events raised while another event is being handled (e.g. a PHP warning emitted by a handler and caught
+            // by the runtime error handler) are dropped, otherwise a failing handler could recurse until the stack
+            // is exhausted, which cannot be recovered from.
+            if(self::$dispatching)
             {
                 return;
             }
 
-            if($this->application->getConsoleConfiguration()->isEnabled())
+            self::$dispatching = true;
+
+            try
             {
-                if(!isset($this->handlerAvailability[ConsoleHandler::class]))
+                if(self::$environmentLogLevel === null)
                 {
-                    $this->handlerAvailability[ConsoleHandler::class] = ConsoleHandler::isAvailable($this->application);
+                    self::$environmentLogLevel = Utilities::getEnvironmentLogLevel();
                 }
-                if($this->handlerAvailability[ConsoleHandler::class])
+
+                if(!self::$environmentLogLevel->levelAllowed($event->getLevel()))
                 {
-                    ConsoleHandler::handleEvent($this->application, $event);
+                    return;
                 }
+
+                $this->dispatch(ConsoleHandler::class, $this->application->getConsoleConfiguration()->isEnabled(), $event, true);
+                $this->dispatch(DescriptorHandler::class, $this->application->getDescriptorConfiguration()->isEnabled(), $event, true);
+                $this->dispatch(FileHandler::class, $this->application->getFileConfiguration()->isEnabled(), $event, true);
+                $this->dispatch(HttpHandler::class, $this->application->getHttpConfiguration()->isEnabled(), $event);
+                $this->dispatch(TcpHandler::class, $this->application->getTcpConfiguration()->isEnabled(), $event);
+                $this->dispatch(UdpHandler::class, $this->application->getUdpConfiguration()->isEnabled(), $event);
+                $this->dispatch(TelegramHandler::class, $this->application->getTelegramConfiguration()->isEnabled(), $event);
+                $this->dispatch(EmailHandler::class, $this->application->getEmailConfiguration()->isEnabled(), $event);
+                $this->dispatch(DiscordHandler::class, $this->application->getDiscordConfiguration()->isEnabled(), $event);
+            }
+            finally
+            {
+                self::$dispatching = false;
+            }
+        }
+
+        /**
+         * Passes the event to a single log handler, isolating the remaining handlers and the caller from any failure.
+         * A handler that throws is disabled for this logger instance and the failure is reported once via error_log().
+         *
+         * @param class-string<LogHandlerInterface> $handler The log handler class.
+         * @param bool $enabled True if the handler is enabled in the configuration.
+         * @param Event $event The event to handle.
+         * @param bool $cacheAvailability True to only check the handler's availability once, for handlers whose
+         *                                availability does not change at runtime.
+         */
+        private function dispatch(string $handler, bool $enabled, Event $event, bool $cacheAvailability=false): void
+        {
+            if(!$enabled || isset($this->failedHandlers[$handler]))
+            {
+                return;
             }
 
-            if($this->application->getDescriptorConfiguration()->isEnabled())
+            try
             {
-                if(!isset($this->handlerAvailability[DescriptorHandler::class]))
+                if($cacheAvailability)
                 {
-                    $this->handlerAvailability[DescriptorHandler::class] = DescriptorHandler::isAvailable($this->application);
+                    $available = $this->handlerAvailability[$handler] ??= $handler::isAvailable($this->application);
                 }
-                if($this->handlerAvailability[DescriptorHandler::class])
+                else
                 {
-                    DescriptorHandler::handleEvent($this->application, $event);
+                    $available = $handler::isAvailable($this->application);
                 }
-            }
 
-            if($this->application->getFileConfiguration()->isEnabled())
-            {
-                if(!isset($this->handlerAvailability[FileHandler::class]))
+                if($available)
                 {
-                    $this->handlerAvailability[FileHandler::class] = FileHandler::isAvailable($this->application);
-                }
-                if($this->handlerAvailability[FileHandler::class])
-                {
-                    FileHandler::handleEvent($this->application, $event);
+                    $handler::handleEvent($this->application, $event);
                 }
             }
-
-            if($this->application->getHttpConfiguration()->isEnabled() && HttpHandler::isAvailable($this->application))
+            catch(Throwable $e)
             {
-                HttpHandler::handleEvent($this->application, $event);
+                $this->failedHandlers[$handler] = true;
+                self::reportFailure($handler, $e, true);
+            }
+        }
+
+        /**
+         * Reports a failure within the logger to PHP's error log, each source is only reported once per process.
+         * error_log() is used as it does not pass through the logger or the runtime error handler.
+         *
+         * @param string $source The class that failed.
+         * @param Throwable $e The failure.
+         * @param bool $disabled True if the source has been disabled as a result of the failure.
+         */
+        private static function reportFailure(string $source, Throwable $e, bool $disabled=false): void
+        {
+            if(isset(self::$reportedFailures[$source]))
+            {
+                return;
             }
 
-            if($this->application->getTcpConfiguration()->isEnabled() && TcpHandler::isAvailable($this->application))
-            {
-                TcpHandler::handleEvent($this->application, $event);
-            }
-
-            if($this->application->getUdpConfiguration()->isEnabled() && UdpHandler::isAvailable($this->application))
-            {
-                UdpHandler::handleEvent($this->application, $event);
-            }
+            self::$reportedFailures[$source] = true;
+            @error_log(sprintf('LogLib2: %s failed%s: %s: %s in %s:%d',
+                $source, $disabled ? ' and has been disabled for this logger' : ' to handle an event', get_class($e), $e->getMessage(), $e->getFile(), $e->getLine()
+            ));
         }
 
         /**
@@ -216,14 +312,21 @@
          */
         public function getAvailability(): array
         {
-            return [
-                ConsoleHandler::class => ConsoleHandler::isAvailable($this->application),
-                DescriptorConfiguration::class => DescriptorHandler::isAvailable($this->application),
-                FileHandler::class => FileHandler::isAvailable($this->application),
-                HttpHandler::class => HttpHandler::isAvailable($this->application),
-                TcpHandler::class => TcpHandler::isAvailable($this->application),
-                UdpHandler::class => UdpHandler::isAvailable($this->application)
-            ];
+            $availability = [];
+            foreach([ConsoleHandler::class, DescriptorHandler::class, FileHandler::class, HttpHandler::class, TcpHandler::class,
+                        UdpHandler::class, TelegramHandler::class, EmailHandler::class, DiscordHandler::class] as $handler)
+            {
+                try
+                {
+                    $availability[$handler] = !isset($this->failedHandlers[$handler]) && $handler::isAvailable($this->application);
+                }
+                catch(Throwable)
+                {
+                    $availability[$handler] = false;
+                }
+            }
+
+            return $availability;
         }
 
         /**
@@ -519,6 +622,204 @@
         }
 
         /**
+         * Retrieves the default TelegramConfiguration instance.
+         *
+         * @return TelegramConfiguration The default TelegramConfiguration instance.
+         */
+        public static function getDefaultTelegramConfiguration(): TelegramConfiguration
+        {
+            if(self::$defaultTelegramConfiguration === null)
+            {
+                self::$defaultTelegramConfiguration = new TelegramConfiguration();
+
+                // Apply environment variables to the default TelegramConfiguration instance.
+                if(getenv('LOGLIB_TELEGRAM_ENABLED') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setEnabled(filter_var(getenv('LOGLIB_TELEGRAM_ENABLED'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_BOT_TOKEN') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setBotToken(getenv('LOGLIB_TELEGRAM_BOT_TOKEN'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_CHAT_ID') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setChatId(getenv('LOGLIB_TELEGRAM_CHAT_ID'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_TOPIC_ID') !== false && getenv('LOGLIB_TELEGRAM_TOPIC_ID') !== '')
+                {
+                    self::$defaultTelegramConfiguration->setTopicId((int)getenv('LOGLIB_TELEGRAM_TOPIC_ID'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_API_ENDPOINT') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setApiEndpoint(getenv('LOGLIB_TELEGRAM_API_ENDPOINT'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_LOG_LEVEL') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setLogLevel(LogLevel::parseFrom(getenv('LOGLIB_TELEGRAM_LOG_LEVEL')));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_DISABLE_NOTIFICATION') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setDisableNotification(filter_var(getenv('LOGLIB_TELEGRAM_DISABLE_NOTIFICATION'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_TIMESTAMP_FORMAT') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setTimestampFormat(TimestampFormat::parseFrom(getenv('LOGLIB_TELEGRAM_TIMESTAMP_FORMAT')));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_TRACE_FORMAT') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setTraceFormat(TraceFormat::parseFrom(getenv('LOGLIB_TELEGRAM_TRACE_FORMAT')));
+                }
+            }
+
+            return self::$defaultTelegramConfiguration;
+        }
+
+        /**
+         * Retrieves the default EmailConfiguration instance.
+         *
+         * @return EmailConfiguration The default EmailConfiguration instance.
+         */
+        public static function getDefaultEmailConfiguration(): EmailConfiguration
+        {
+            if(self::$defaultEmailConfiguration === null)
+            {
+                self::$defaultEmailConfiguration = new EmailConfiguration();
+
+                // Apply environment variables to the default EmailConfiguration instance.
+                if(getenv('LOGLIB_EMAIL_ENABLED') !== false)
+                {
+                    self::$defaultEmailConfiguration->setEnabled(filter_var(getenv('LOGLIB_EMAIL_ENABLED'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_EMAIL_HOST') !== false)
+                {
+                    self::$defaultEmailConfiguration->setHost(getenv('LOGLIB_EMAIL_HOST'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_PORT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setPort((int)getenv('LOGLIB_EMAIL_PORT'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_ENCRYPTION') !== false)
+                {
+                    self::$defaultEmailConfiguration->setEncryption(SmtpEncryption::parseFrom(getenv('LOGLIB_EMAIL_ENCRYPTION')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_VERIFY_PEER') !== false)
+                {
+                    self::$defaultEmailConfiguration->setVerifyPeer(filter_var(getenv('LOGLIB_EMAIL_VERIFY_PEER'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_EMAIL_USERNAME') !== false)
+                {
+                    self::$defaultEmailConfiguration->setUsername(getenv('LOGLIB_EMAIL_USERNAME'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_PASSWORD') !== false)
+                {
+                    self::$defaultEmailConfiguration->setPassword(getenv('LOGLIB_EMAIL_PASSWORD'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_FROM_ADDRESS') !== false)
+                {
+                    self::$defaultEmailConfiguration->setFromAddress(getenv('LOGLIB_EMAIL_FROM_ADDRESS'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_FROM_NAME') !== false)
+                {
+                    self::$defaultEmailConfiguration->setFromName(getenv('LOGLIB_EMAIL_FROM_NAME'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_RECIPIENTS') !== false)
+                {
+                    self::$defaultEmailConfiguration->setRecipients(explode(',', getenv('LOGLIB_EMAIL_RECIPIENTS')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_TIMEOUT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setTimeout((int)getenv('LOGLIB_EMAIL_TIMEOUT'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_LOG_LEVEL') !== false)
+                {
+                    self::$defaultEmailConfiguration->setLogLevel(LogLevel::parseFrom(getenv('LOGLIB_EMAIL_LOG_LEVEL')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_TIMESTAMP_FORMAT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setTimestampFormat(TimestampFormat::parseFrom(getenv('LOGLIB_EMAIL_TIMESTAMP_FORMAT')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_TRACE_FORMAT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setTraceFormat(TraceFormat::parseFrom(getenv('LOGLIB_EMAIL_TRACE_FORMAT')));
+                }
+            }
+
+            return self::$defaultEmailConfiguration;
+        }
+
+        /**
+         * Retrieves the default DiscordConfiguration instance.
+         *
+         * @return DiscordConfiguration The default DiscordConfiguration instance.
+         */
+        public static function getDefaultDiscordConfiguration(): DiscordConfiguration
+        {
+            if(self::$defaultDiscordConfiguration === null)
+            {
+                self::$defaultDiscordConfiguration = new DiscordConfiguration();
+
+                // Apply environment variables to the default DiscordConfiguration instance.
+                if(getenv('LOGLIB_DISCORD_ENABLED') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setEnabled(filter_var(getenv('LOGLIB_DISCORD_ENABLED'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_DISCORD_WEBHOOK_URL') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setWebhookUrl(getenv('LOGLIB_DISCORD_WEBHOOK_URL'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_THREAD_ID') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setThreadId(getenv('LOGLIB_DISCORD_THREAD_ID'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_USERNAME') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setUsername(getenv('LOGLIB_DISCORD_USERNAME'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_AVATAR_URL') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setAvatarUrl(getenv('LOGLIB_DISCORD_AVATAR_URL'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_LOG_LEVEL') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setLogLevel(LogLevel::parseFrom(getenv('LOGLIB_DISCORD_LOG_LEVEL')));
+                }
+
+                if(getenv('LOGLIB_DISCORD_TRACE_FORMAT') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setTraceFormat(TraceFormat::parseFrom(getenv('LOGLIB_DISCORD_TRACE_FORMAT')));
+                }
+            }
+
+            return self::$defaultDiscordConfiguration;
+        }
+
+        /**
          * Retrieves the backtrace level.
          *
          * @return int The backtrace level.
@@ -603,12 +904,13 @@
                 $logger->error($e->getMessage(), $e);
             });
 
-            // Register to catch fatal errors.
+            // Register to catch fatal errors, these bypass the error handler above. error_get_last() also returns
+            // non-fatal errors that were already handled (e.g. warnings), which must not be reported again as critical.
             register_shutdown_function(function() use ($logger)
             {
                 $error = error_get_last();
 
-                if($error !== null)
+                if($error !== null && ($error['type'] & (E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR)) !== 0)
                 {
                     $logger->critical($error['message'], Utilities::detailsFromError($error['type'], $error['message'], $error['file'], $error['line']));
                 }

@@ -53,16 +53,25 @@ We do encourage community support and discussions, please be respectful and foll
     * [HTTP Variables](#http-variables)
     * [TCP Variables](#tcp-variables)
     * [UDP Variables](#udp-variables)
+    * [Telegram Variables](#telegram-variables)
+    * [Email Variables](#email-variables)
+    * [Discord Variables](#discord-variables)
   * [Log Levels](#log-levels)
     * [Log Filtering](#log-filtering)
       * [Command-Line Override](#command-line-override)
       * [Environment Variable Override](#environment-variable-override)
+    * [Handler Failures](#handler-failures)
   * [Creating a Logger](#creating-a-logger)
   * [Logging Events](#logging-events)
   * [Changing Default Configuration](#changing-default-configuration)
   * [Changing Logger Configuration](#changing-logger-configuration)
-  * [TCP/UDP Logging Server (python)](#tcpudp-logging-server-python)
-    * [Usage:](#usage)
+  * [LogLib2Server](#loglib2server)
+    * [Installing the Server](#installing-the-server)
+    * [Running the Server](#running-the-server)
+    * [Sending Events to the Server](#sending-events-to-the-server)
+  * [Telegram Notifications](#telegram-notifications)
+  * [Email Notifications](#email-notifications)
+  * [Discord Notifications](#discord-notifications)
   * [Formatters](#formatters)
     * [AnsiFormat](#ansiformat)
     * [LogFormat](#logformat)
@@ -80,8 +89,6 @@ We do encourage community support and discussions, please be respectful and foll
     * [XML](#xml)
 * [License](#license)
 <!-- TOC -->
-
-
 
 ## Installation
 
@@ -241,6 +248,63 @@ configure the UDP logging handler for all logger instances.
 | `LOGLIB_UDP_TRACE_FORMAT`     | `none`, `basic`, `full`                                                                                 | `basic`       | Enable or disable trace formatting                     |
 
 
+### Telegram Variables
+
+The following environment variables can be used to configure the Telegram logging handler, these variables are used to
+configure the Telegram logging handler for all logger instances.
+
+| Variable Name                          | Excepted Value                                                                                          | Default Value              | Description                                                         |
+|----------------------------------------|---------------------------------------------------------------------------------------------------------|----------------------------|---------------------------------------------------------------------|
+| `LOGLIB_TELEGRAM_ENABLED`              | `true`, `false`                                                                                         | `false`                    | Enable or disable Telegram notifications                            |
+| `LOGLIB_TELEGRAM_BOT_TOKEN`            | `string`                                                                                                |                            | The bot token issued by @BotFather                                  |
+| `LOGLIB_TELEGRAM_CHAT_ID`              | `string`, `integer`                                                                                     |                            | The chat ID (e.g. `-1001234567890`) or public username (`@channel`) |
+| `LOGLIB_TELEGRAM_TOPIC_ID`             | `integer`                                                                                               |                            | Optional topic (message thread) ID within a forum supergroup        |
+| `LOGLIB_TELEGRAM_API_ENDPOINT`         | `string`                                                                                                | `https://api.telegram.org` | The base URL of the Telegram Bot API                                |
+| `LOGLIB_TELEGRAM_LOG_LEVEL`            | `debug`, `verbose`, `info`, `warning`, `error`, `critical`                                              | `error`                    | The minimum log level sent to Telegram                              |
+| `LOGLIB_TELEGRAM_DISABLE_NOTIFICATION` | `true`, `false`                                                                                         | `false`                    | Send notifications silently                                         |
+| `LOGLIB_TELEGRAM_TIMESTAMP_FORMAT`     | `none`, `time_only`, `time_only_millis`, `date_only`, `date_time`. `date_time_millis`, `unix_timestamp` | `date_time`                | The format of the timestamp                                         |
+| `LOGLIB_TELEGRAM_TRACE_FORMAT`         | `none`, `basic`, `full`                                                                                 | `full`                     | Enable or disable trace formatting                                  |
+
+
+### Email Variables
+
+The following environment variables can be used to configure the Email (SMTP) logging handler, these variables are
+used to configure the Email logging handler for all logger instances.
+
+| Variable Name                     | Excepted Value                                                                                          | Default Value | Description                                                   |
+|-----------------------------------|---------------------------------------------------------------------------------------------------------|---------------|---------------------------------------------------------------|
+| `LOGLIB_EMAIL_ENABLED`            | `true`, `false`                                                                                         | `false`       | Enable or disable email notifications                         |
+| `LOGLIB_EMAIL_HOST`               | `string`                                                                                                | `localhost`   | The hostname of the SMTP server                               |
+| `LOGLIB_EMAIL_PORT`               | `integer`                                                                                               | `587`         | The port of the SMTP server                                   |
+| `LOGLIB_EMAIL_ENCRYPTION`         | `none`, `starttls`, `tls`                                                                               | `starttls`    | The encryption used for the SMTP connection                   |
+| `LOGLIB_EMAIL_VERIFY_PEER`        | `true`, `false`                                                                                         | `true`        | Enable or disable verification of the server's certificate    |
+| `LOGLIB_EMAIL_USERNAME`           | `string`                                                                                                |               | The username used to authenticate, authentication is optional |
+| `LOGLIB_EMAIL_PASSWORD`           | `string`                                                                                                |               | The password used to authenticate                             |
+| `LOGLIB_EMAIL_FROM_ADDRESS`       | `string`                                                                                                |               | The address emails are sent from                              |
+| `LOGLIB_EMAIL_FROM_NAME`          | `string`                                                                                                | `LogLib2`     | The display name emails are sent from                         |
+| `LOGLIB_EMAIL_RECIPIENTS`         | `string` (comma separated)                                                                              |               | The addresses emails are sent to                              |
+| `LOGLIB_EMAIL_TIMEOUT`            | `integer`                                                                                               | `10`          | The connection timeout in seconds                             |
+| `LOGLIB_EMAIL_LOG_LEVEL`          | `debug`, `verbose`, `info`, `warning`, `error`, `critical`                                              | `error`       | The minimum log level that is emailed                         |
+| `LOGLIB_EMAIL_TIMESTAMP_FORMAT`   | `none`, `time_only`, `time_only_millis`, `date_only`, `date_time`. `date_time_millis`, `unix_timestamp` | `date_time`   | The format of the timestamp                                   |
+| `LOGLIB_EMAIL_TRACE_FORMAT`       | `none`, `basic`, `full`                                                                                 | `full`        | Enable or disable trace formatting                            |
+
+
+### Discord Variables
+
+The following environment variables can be used to configure the Discord logging handler, these variables are used to
+configure the Discord logging handler for all logger instances.
+
+| Variable Name                 | Excepted Value                                             | Default Value | Description                                                   |
+|-------------------------------|------------------------------------------------------------|---------------|---------------------------------------------------------------|
+| `LOGLIB_DISCORD_ENABLED`      | `true`, `false`                                            | `false`       | Enable or disable Discord notifications                       |
+| `LOGLIB_DISCORD_WEBHOOK_URL`  | `string`                                                   |               | The URL of the channel's webhook                              |
+| `LOGLIB_DISCORD_THREAD_ID`    | `string`                                                   |               | Optional thread (or forum post) ID within the webhook channel |
+| `LOGLIB_DISCORD_USERNAME`     | `string`                                                   |               | Overrides the webhook's default username                      |
+| `LOGLIB_DISCORD_AVATAR_URL`   | `string`                                                   |               | Overrides the webhook's default avatar                        |
+| `LOGLIB_DISCORD_LOG_LEVEL`    | `debug`, `verbose`, `info`, `warning`, `error`, `critical` | `error`       | The minimum log level sent to Discord                         |
+| `LOGLIB_DISCORD_TRACE_FORMAT` | `none`, `basic`, `full`                                    | `full`        | Enable or disable trace formatting                            |
+
+
 ## Log Levels
 
 The LogLevel enumeration in the LogLib2 namespace provides five distinct log levels for logging events, each log level
@@ -286,6 +350,14 @@ it will override the default log level filter with the value provided in the env
 export LOG_LEVEL=debug
 ./myapp
 ```
+
+### Handler Failures
+
+Logging never throws. Each log handler is isolated, so if a handler throws (for example due to a misconfiguration or a
+missing extension) the remaining handlers still receive the event and the exception is not propagated to your code.
+The failing handler is disabled for that logger instance and the failure is reported once using PHP's `error_log()`.
+Network based handlers (HTTP, TCP, UDP, Telegram, Email & Discord) additionally disable themselves for the remainder of
+the process if their destination cannot be reached, so an unreachable service never slows down every log call.
 
 ## Creating a Logger
 
@@ -384,36 +456,176 @@ $logger->info('An informational event occurred');
  > Note: This would override the default configuration for the logger instance only, other logger instances would still
  > use the default configuration unless they are explicitly configured to be overridden by their own configurations.
 
-## TCP/UDP Logging Server (python)
+## LogLib2Server
 
-While no fully-fledged logging server is provided with the library, a simple TCP/UDP logging server is provided
-with this project which is written in Python without requiring pip dependencies, the server is listens on both
-TCP & UDP connections and is only designed to receive JSON formatted log entries with the Unix Timestamp being the
-format timestamp. Contributions to improve this server are welcomed.
+[LogLib2Server](https://github.com/nosial/LogLib2Server) is a lightweight logging server written in Rust that receives
+log events from LogLib2's TCP and UDP handlers. It displays incoming events in the console with color-coded levels,
+stack traces and exception details, and can optionally write them to daily rotating JSONL files. This makes it useful
+for watching the logs of multiple applications or servers in one place.
 
- > See [server.py](server.py) for the server implementation.
+### Installing the Server
 
-### Usage:
-
-The server can be started by using python to run [server.py](server.py), by default the server listens on port 5131 and
-writes log entries to the current working directory under the 'logs' directory. This can be configured using command-line
-arguments
+Pre-built binaries for Linux (`x86_64`, `i686`, `aarch64`, `armv7`) and Windows (`x86_64`, `i686`) are available from
+the [releases page](https://github.com/nosial/LogLib2Server/releases). Alternatively the server can be built from
+source using Cargo (Rust 1.75 or later):
 
 ```bash
-python server.py --port=5131 --working-directory=/path/to/logs
+git clone https://github.com/nosial/LogLib2Server
+cd LogLib2Server
+cargo install --path .
 ```
 
-Once running, you can configure the UDP configuration of your loggers to use this server, or alternatively use
-environment variables to configure the server for all loggers.
+### Running the Server
+
+By default the server listens for both TCP and UDP connections on `0.0.0.0:5131`, which matches LogLib2's default TCP
+and UDP configuration.
 
 ```bash
+# Listen on the default port and display events in the console
+LogLib2Server
+
+# Listen on a custom port and also write events to daily rotating JSONL files
+LogLib2Server -p 5131 -o /var/log/loglib2
+
+# Only accept UDP events, displaying full stack traces
+LogLib2Server --protocol udp --trace full
+```
+
+| Option          | Short | Default   | Description                                                                       |
+|-----------------|-------|-----------|-----------------------------------------------------------------------------------|
+| `--host`        | `-H`  | `0.0.0.0` | The address to bind the server to                                                 |
+| `--port`        | `-p`  | `5131`    | The port to listen on                                                             |
+| `--protocol`    |       | `both`    | The protocol to accept events over: `tcp`, `udp` or `both`                        |
+| `--output-path` | `-o`  |           | The directory to write daily rotating JSONL files to (e.g. `log2026-05-28.jsonl`) |
+| `--trace`       |       | `basic`   | The stack trace format to display: `none`, `basic` or `full`                      |
+| `--show-st`     |       | `false`   | Always show stack traces in the trace section of the event                        |
+| `--no-color`    |       | `false`   | Disable ANSI colors in the console output                                         |
+
+Events at the `WRN`, `ERR` and `CRT` levels are written to stderr while all other events are written to stdout. See the
+[LogLib2 Server README](https://github.com/nosial/LogLib2Server#readme) for more details.
+
+### Sending Events to the Server
+
+Enable the TCP or UDP handler and point it at the server, events must be sent using the `jsonl` log format (the
+default). TCP events are separated by newlines, so appending a newline should be enabled when using TCP.
+
+Using environment variables:
+
+```shell
 export LOGLIB_UDP_ENABLED=true
-export LOGLIB_UDP_HOST=0.0.0.0
+export LOGLIB_UDP_HOST=127.0.0.1
 export LOGLIB_UDP_PORT=5131
 ```
 
-And once any logging events have been fired, you should see the server receiving the log entries in real-time. If for
-any reason that LogLib fails to send these entries to the server, it will fail silently and re-try next time.
+Or by altering the default configuration:
+
+```php
+// UDP
+\LogLib2\Logger::getDefaultUdpConfiguration()
+    ->setEnabled(true)
+    ->setHost('127.0.0.1')
+    ->setPort(5131);
+
+// TCP
+\LogLib2\Logger::getDefaultTcpConfiguration()
+    ->setEnabled(true)
+    ->setHost('127.0.0.1')
+    ->setPort(5131)
+    ->setAppendNewline(true);
+```
+
+ > Note: UDP is recommended for most use cases as it never blocks the application, though events may be lost if the
+ > server is unreachable or the network is congested. TCP is more reliable while the server is reachable, but if the
+ > server cannot be reached the TCP handler disables itself for the remainder of the process.
+
+## Telegram Notifications
+
+The Telegram handler pushes log events to a Telegram chat, and optionally to a specific topic within a forum
+supergroup, using a Telegram bot. Requests are made using the cURL extension. By default, only `ERR` and `CRT` events
+are sent, this can be lowered down to `DBG` using the log level of the Telegram configuration; events are still
+subject to the global log level filter (see [Log Filtering](#log-filtering)) so it must also allow the levels you want
+sent to Telegram.
+
+```php
+\LogLib2\Logger::getDefaultTelegramConfiguration()
+    ->setEnabled(true)
+    ->setBotToken('123456789:AAExampleBotToken')
+    ->setChatId(-1001234567890)
+    ->setTopicId(42) // Optional
+    ->setLogLevel(\LogLib2\Enums\LogLevel::ERROR); // Optional, defaults to ERROR (ERR & CRT)
+```
+
+Messages are formatted using Telegram's HTML formatting and begin with hashtags for the log level, the application name
+and the exception (if any) to make them easy to search within the chat, for example:
+
+```
+#ERR #com_example_myapp #RuntimeException
+Error in com.example.myapp
+Time: Mon, 5 Oct 2026 13:23:12
+Location: MyClass->process (/app/src/MyClass.php:42)
+
+Failed to process the order
+
+Exception: RuntimeException
+Thrown at: /app/src/MyClass.php:40
+Order could not be found
+Stack Trace: (expandable)
+```
+
+ > Note: Characters that Telegram does not allow within hashtags are replaced with underscores, for example the
+ > application name `com.example.myapp` becomes `#com_example_myapp`. If the bot token, chat or topic is invalid the
+ > handler disables itself for the remainder of the process; rate-limited messages are dropped.
+
+## Email Notifications
+
+The Email handler sends log events as emails using an SMTP server, no additional extensions or dependencies are
+required (the OpenSSL extension is required when using `starttls` or `tls` encryption). Like the Telegram handler only
+`ERR` and `CRT` events are sent by default, this can be lowered down to `DBG` using the log level of the Email
+configuration; events are still subject to the global log level filter.
+
+```php
+\LogLib2\Logger::getDefaultEmailConfiguration()
+    ->setEnabled(true)
+    ->setHost('smtp.example.com')
+    ->setPort(587)
+    ->setEncryption(\LogLib2\Enums\SmtpEncryption::STARTTLS)
+    ->setUsername('alerts@example.com')
+    ->setPassword('password')
+    ->setFromAddress('alerts@example.com')
+    ->setRecipients(['ops@example.com', 'dev@example.com'])
+    ->setLogLevel(\LogLib2\Enums\LogLevel::ERROR); // Optional, defaults to ERROR (ERR & CRT)
+```
+
+Emails are sent with both an HTML and a plain text version, the subject is formatted as `[LEVEL] ApplicationName: Message`
+(for example `[ERR] com.example.myapp: Failed to process the order`) and the `X-LogLib-Level` and `X-LogLib-Application`
+headers are included to make it easy to create filtering rules in your email client.
+
+ > Note: Emails are sent synchronously, so each emailed event blocks until the SMTP server accepts it. If the server
+ > cannot be reached, authentication fails or the server permanently rejects the email (5xx), the handler disables
+ > itself for the remainder of the process; temporary rejections (4xx) only drop the current email.
+
+## Discord Notifications
+
+The Discord handler posts log events to a Discord channel, and optionally to a thread or forum post within that channel,
+using a webhook (Channel Settings > Integrations > Webhooks). Requests are made using the cURL extension. Like the
+other notification handlers only `ERR` and `CRT` events are sent by default, this can be lowered down to `DBG` using
+the log level of the Discord configuration; events are still subject to the global log level filter.
+
+```php
+\LogLib2\Logger::getDefaultDiscordConfiguration()
+    ->setEnabled(true)
+    ->setWebhookUrl('https://discord.com/api/webhooks/123456789/AbCdEf')
+    ->setThreadId('987654321') // Optional
+    ->setLogLevel(\LogLib2\Enums\LogLevel::ERROR); // Optional, defaults to ERROR (ERR & CRT)
+```
+
+Events are sent as an embed colored by log level, containing the message, the level, application name and host, the
+location of the log call and the exception chain with stack traces. The embed timestamp is displayed in each reader's
+local time zone.
+
+ > Note: Mentions are always disabled so log messages containing `@everyone` or user/role mentions never ping anyone.
+ > Stack traces are shortened to fit within Discord's embed limits. If the webhook is deleted or invalid the handler
+ > disables itself for the remainder of the process; rate-limited messages are dropped.
 
 ## Formatters
 
@@ -468,7 +680,7 @@ format to use for the trace in the log
 | Format Name | Value   | Description                                                                 |
 |-------------|---------|-----------------------------------------------------------------------------|
 | `NONE`      | `none`  | (Default) No trace is included in the log entry                             |
-| `BASIC`     | `basic` | Only the class and method name are included in the log entry trace           |
+| `BASIC`     | `basic` | Only the class and method name are included in the log entry trace          |
 | `FULL`      | `full`  | The full trace is included in the log entry, including the class and method |
 
 
@@ -496,14 +708,14 @@ The Event object type is used to represent a log event, it contains the followin
 
 The StackTrace object type is used to represent a stack trace, it contains the following properties:
 
-| Property Name | Value Type              | Optional | Description                             |
-|---------------|-------------------------|----------|-----------------------------------------|
-| file          | `string`                | Yes      | The executing file of the caller        |
-| line          | `integer`               | Yes      | The executing line of the caller        |
-| function      | `string`                | Yes      | The executing function of the caller    |
-| args          | `mixed[]`               | Yes      | The arguments of the executing function |
-| class         | `string`                | Yes      | The executing class of the caller       |
-| call_type     | [`CallType`](#calltype) | Yes      | The call type of the caller             |
+| Property Name | Value Type               | Optional | Description                             |
+|---------------|--------------------------|----------|-----------------------------------------|
+| file          | `string`                 | Yes      | The executing file of the caller        |
+| line          | `integer`                | Yes      | The executing line of the caller        |
+| function      | `string`                 | Yes      | The executing function of the caller    |
+| args          | `mixed[]`                | Yes      | The arguments of the executing function |
+| class         | `string`                 | Yes      | The executing class of the caller       |
+| call_type     | [`CallType`](#calltypes) | Yes      | The call type of the caller             |
 
 
 ### ExceptionDetails

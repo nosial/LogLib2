@@ -4,9 +4,12 @@
 
     use LogLib2\Objects\Configurations\ConsoleConfiguration;
     use LogLib2\Objects\Configurations\DescriptorConfiguration;
+    use LogLib2\Objects\Configurations\DiscordConfiguration;
+    use LogLib2\Objects\Configurations\EmailConfiguration;
     use LogLib2\Objects\Configurations\FileConfiguration;
     use LogLib2\Objects\Configurations\HttpConfiguration;
     use LogLib2\Objects\Configurations\TcpConfiguration;
+    use LogLib2\Objects\Configurations\TelegramConfiguration;
     use LogLib2\Objects\Configurations\UdpConfiguration;
 
     class Application
@@ -14,9 +17,12 @@
         private string $name;
         private ConsoleConfiguration $consoleConfiguration;
         private DescriptorConfiguration $descriptorConfiguration;
+        private DiscordConfiguration $discordConfiguration;
+        private EmailConfiguration $emailConfiguration;
         private FileConfiguration $fileConfiguration;
         private HttpConfiguration $httpConfiguration;
         private TcpConfiguration $tcpConfiguration;
+        private TelegramConfiguration $telegramConfiguration;
         private UdpConfiguration $udpConfiguration;
 
         /**
@@ -29,9 +35,12 @@
             $this->name = $name;
             $this->consoleConfiguration = new ConsoleConfiguration();
             $this->descriptorConfiguration = new DescriptorConfiguration();
+            $this->discordConfiguration = new DiscordConfiguration();
+            $this->emailConfiguration = new EmailConfiguration();
             $this->fileConfiguration = new FileConfiguration();
             $this->httpConfiguration = new HttpConfiguration();
             $this->tcpConfiguration = new TcpConfiguration();
+            $this->telegramConfiguration = new TelegramConfiguration();
             $this->udpConfiguration = new UdpConfiguration();
         }
 
@@ -174,6 +183,72 @@
         public function setUdpConfiguration(UdpConfiguration $configuration): Application
         {
             $this->udpConfiguration = $configuration;
+            return $this;
+        }
+
+        /**
+         * Retrieves the TelegramConfiguration instance for the application.
+         *
+         * @return TelegramConfiguration The TelegramConfiguration instance for the application.
+         */
+        public function getTelegramConfiguration(): TelegramConfiguration
+        {
+            return $this->telegramConfiguration;
+        }
+
+        /**
+         * Sets the TelegramConfiguration instance for the application.
+         *
+         * @param TelegramConfiguration $configuration The TelegramConfiguration instance for the application.
+         * @return Application Returns the current instance for method chaining.
+         */
+        public function setTelegramConfiguration(TelegramConfiguration $configuration): Application
+        {
+            $this->telegramConfiguration = $configuration;
+            return $this;
+        }
+
+        /**
+         * Retrieves the DiscordConfiguration instance for the application.
+         *
+         * @return DiscordConfiguration The DiscordConfiguration instance for the application.
+         */
+        public function getDiscordConfiguration(): DiscordConfiguration
+        {
+            return $this->discordConfiguration;
+        }
+
+        /**
+         * Sets the DiscordConfiguration instance for the application.
+         *
+         * @param DiscordConfiguration $configuration The DiscordConfiguration instance for the application.
+         * @return Application Returns the current instance for method chaining.
+         */
+        public function setDiscordConfiguration(DiscordConfiguration $configuration): Application
+        {
+            $this->discordConfiguration = $configuration;
+            return $this;
+        }
+
+        /**
+         * Retrieves the EmailConfiguration instance for the application.
+         *
+         * @return EmailConfiguration The EmailConfiguration instance for the application.
+         */
+        public function getEmailConfiguration(): EmailConfiguration
+        {
+            return $this->emailConfiguration;
+        }
+
+        /**
+         * Sets the EmailConfiguration instance for the application.
+         *
+         * @param EmailConfiguration $configuration The EmailConfiguration instance for the application.
+         * @return Application Returns the current instance for method chaining.
+         */
+        public function setEmailConfiguration(EmailConfiguration $configuration): Application
+        {
+            $this->emailConfiguration = $configuration;
             return $this;
         }
 

@@ -9,4 +9,7 @@
         case TCP = 'tcp';
         case UDP = 'udp';
         case HTTP = 'http';
+        case TELEGRAM = 'telegram';
+        case EMAIL = 'email';
+        case DISCORD = 'discord';
     }
