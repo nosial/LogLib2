@@ -6,22 +6,29 @@
 
     use LogLib2\Classes\LogHandlers\ConsoleHandler;
     use LogLib2\Classes\LogHandlers\DescriptorHandler;
+    use LogLib2\Classes\LogHandlers\DiscordHandler;
+    use LogLib2\Classes\LogHandlers\EmailHandler;
     use LogLib2\Classes\LogHandlers\FileHandler;
     use LogLib2\Classes\LogHandlers\HttpHandler;
     use LogLib2\Classes\LogHandlers\TcpHandler;
+    use LogLib2\Classes\LogHandlers\TelegramHandler;
     use LogLib2\Classes\LogHandlers\UdpHandler;
     use LogLib2\Classes\Utilities;
     use LogLib2\Enums\AnsiFormat;
     use LogLib2\Enums\LogFormat;
     use LogLib2\Enums\LogLevel;
+    use LogLib2\Enums\SmtpEncryption;
     use LogLib2\Enums\TimestampFormat;
     use LogLib2\Enums\TraceFormat;
     use LogLib2\Objects\Application;
     use LogLib2\Objects\Configurations\ConsoleConfiguration;
     use LogLib2\Objects\Configurations\DescriptorConfiguration;
+    use LogLib2\Objects\Configurations\DiscordConfiguration;
+    use LogLib2\Objects\Configurations\EmailConfiguration;
     use LogLib2\Objects\Configurations\FileConfiguration;
     use LogLib2\Objects\Configurations\HttpConfiguration;
     use LogLib2\Objects\Configurations\TcpConfiguration;
+    use LogLib2\Objects\Configurations\TelegramConfiguration;
     use LogLib2\Objects\Configurations\UdpConfiguration;
     use LogLib2\Objects\Event;
     use LogLib2\Objects\ExceptionDetails;
@@ -34,6 +41,9 @@
         private static ?FileConfiguration $defaultFileConfiguration=null;
         private static ?HttpConfiguration $defaultHttpConfiguration=null;
         private static ?TcpConfiguration $defaultTcpConfiguration=null;
+        private static ?TelegramConfiguration $defaultTelegramConfiguration=null;
+        private static ?EmailConfiguration $defaultEmailConfiguration=null;
+        private static ?DiscordConfiguration $defaultDiscordConfiguration=null;
         private static ?UdpConfiguration $defaultUdpConfiguration=null;
         private static bool $handlersRegistered=false;
         private static ?Logger $runtimeLogger=null;
@@ -56,6 +66,9 @@
             $this->application->setFileConfiguration(self::getDefaultFileConfiguration());
             $this->application->setHttpConfiguration(self::getDefaultHttpConfiguration());
             $this->application->setTcpConfiguration(self::getDefaultTcpConfiguration());
+            $this->application->setTelegramConfiguration(self::getDefaultTelegramConfiguration());
+            $this->application->setEmailConfiguration(self::getDefaultEmailConfiguration());
+            $this->application->setDiscordConfiguration(self::getDefaultDiscordConfiguration());
             $this->application->setUdpConfiguration(self::getDefaultUdpConfiguration());
         }
 
@@ -207,6 +220,21 @@
             {
                 UdpHandler::handleEvent($this->application, $event);
             }
+
+            if($this->application->getTelegramConfiguration()->isEnabled() && TelegramHandler::isAvailable($this->application))
+            {
+                TelegramHandler::handleEvent($this->application, $event);
+            }
+
+            if($this->application->getEmailConfiguration()->isEnabled() && EmailHandler::isAvailable($this->application))
+            {
+                EmailHandler::handleEvent($this->application, $event);
+            }
+
+            if($this->application->getDiscordConfiguration()->isEnabled() && DiscordHandler::isAvailable($this->application))
+            {
+                DiscordHandler::handleEvent($this->application, $event);
+            }
         }
 
         /**
@@ -222,7 +250,10 @@
                 FileHandler::class => FileHandler::isAvailable($this->application),
                 HttpHandler::class => HttpHandler::isAvailable($this->application),
                 TcpHandler::class => TcpHandler::isAvailable($this->application),
-                UdpHandler::class => UdpHandler::isAvailable($this->application)
+                UdpHandler::class => UdpHandler::isAvailable($this->application),
+                TelegramHandler::class => TelegramHandler::isAvailable($this->application),
+                EmailHandler::class => EmailHandler::isAvailable($this->application),
+                DiscordHandler::class => DiscordHandler::isAvailable($this->application)
             ];
         }
 
@@ -516,6 +547,204 @@
             }
 
             return self::$defaultUdpConfiguration;
+        }
+
+        /**
+         * Retrieves the default TelegramConfiguration instance.
+         *
+         * @return TelegramConfiguration The default TelegramConfiguration instance.
+         */
+        public static function getDefaultTelegramConfiguration(): TelegramConfiguration
+        {
+            if(self::$defaultTelegramConfiguration === null)
+            {
+                self::$defaultTelegramConfiguration = new TelegramConfiguration();
+
+                // Apply environment variables to the default TelegramConfiguration instance.
+                if(getenv('LOGLIB_TELEGRAM_ENABLED') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setEnabled(filter_var(getenv('LOGLIB_TELEGRAM_ENABLED'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_BOT_TOKEN') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setBotToken(getenv('LOGLIB_TELEGRAM_BOT_TOKEN'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_CHAT_ID') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setChatId(getenv('LOGLIB_TELEGRAM_CHAT_ID'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_TOPIC_ID') !== false && getenv('LOGLIB_TELEGRAM_TOPIC_ID') !== '')
+                {
+                    self::$defaultTelegramConfiguration->setTopicId((int)getenv('LOGLIB_TELEGRAM_TOPIC_ID'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_API_ENDPOINT') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setApiEndpoint(getenv('LOGLIB_TELEGRAM_API_ENDPOINT'));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_LOG_LEVEL') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setLogLevel(LogLevel::parseFrom(getenv('LOGLIB_TELEGRAM_LOG_LEVEL')));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_DISABLE_NOTIFICATION') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setDisableNotification(filter_var(getenv('LOGLIB_TELEGRAM_DISABLE_NOTIFICATION'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_TIMESTAMP_FORMAT') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setTimestampFormat(TimestampFormat::parseFrom(getenv('LOGLIB_TELEGRAM_TIMESTAMP_FORMAT')));
+                }
+
+                if(getenv('LOGLIB_TELEGRAM_TRACE_FORMAT') !== false)
+                {
+                    self::$defaultTelegramConfiguration->setTraceFormat(TraceFormat::parseFrom(getenv('LOGLIB_TELEGRAM_TRACE_FORMAT')));
+                }
+            }
+
+            return self::$defaultTelegramConfiguration;
+        }
+
+        /**
+         * Retrieves the default EmailConfiguration instance.
+         *
+         * @return EmailConfiguration The default EmailConfiguration instance.
+         */
+        public static function getDefaultEmailConfiguration(): EmailConfiguration
+        {
+            if(self::$defaultEmailConfiguration === null)
+            {
+                self::$defaultEmailConfiguration = new EmailConfiguration();
+
+                // Apply environment variables to the default EmailConfiguration instance.
+                if(getenv('LOGLIB_EMAIL_ENABLED') !== false)
+                {
+                    self::$defaultEmailConfiguration->setEnabled(filter_var(getenv('LOGLIB_EMAIL_ENABLED'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_EMAIL_HOST') !== false)
+                {
+                    self::$defaultEmailConfiguration->setHost(getenv('LOGLIB_EMAIL_HOST'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_PORT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setPort((int)getenv('LOGLIB_EMAIL_PORT'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_ENCRYPTION') !== false)
+                {
+                    self::$defaultEmailConfiguration->setEncryption(SmtpEncryption::parseFrom(getenv('LOGLIB_EMAIL_ENCRYPTION')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_VERIFY_PEER') !== false)
+                {
+                    self::$defaultEmailConfiguration->setVerifyPeer(filter_var(getenv('LOGLIB_EMAIL_VERIFY_PEER'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_EMAIL_USERNAME') !== false)
+                {
+                    self::$defaultEmailConfiguration->setUsername(getenv('LOGLIB_EMAIL_USERNAME'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_PASSWORD') !== false)
+                {
+                    self::$defaultEmailConfiguration->setPassword(getenv('LOGLIB_EMAIL_PASSWORD'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_FROM_ADDRESS') !== false)
+                {
+                    self::$defaultEmailConfiguration->setFromAddress(getenv('LOGLIB_EMAIL_FROM_ADDRESS'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_FROM_NAME') !== false)
+                {
+                    self::$defaultEmailConfiguration->setFromName(getenv('LOGLIB_EMAIL_FROM_NAME'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_RECIPIENTS') !== false)
+                {
+                    self::$defaultEmailConfiguration->setRecipients(explode(',', getenv('LOGLIB_EMAIL_RECIPIENTS')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_TIMEOUT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setTimeout((int)getenv('LOGLIB_EMAIL_TIMEOUT'));
+                }
+
+                if(getenv('LOGLIB_EMAIL_LOG_LEVEL') !== false)
+                {
+                    self::$defaultEmailConfiguration->setLogLevel(LogLevel::parseFrom(getenv('LOGLIB_EMAIL_LOG_LEVEL')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_TIMESTAMP_FORMAT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setTimestampFormat(TimestampFormat::parseFrom(getenv('LOGLIB_EMAIL_TIMESTAMP_FORMAT')));
+                }
+
+                if(getenv('LOGLIB_EMAIL_TRACE_FORMAT') !== false)
+                {
+                    self::$defaultEmailConfiguration->setTraceFormat(TraceFormat::parseFrom(getenv('LOGLIB_EMAIL_TRACE_FORMAT')));
+                }
+            }
+
+            return self::$defaultEmailConfiguration;
+        }
+
+        /**
+         * Retrieves the default DiscordConfiguration instance.
+         *
+         * @return DiscordConfiguration The default DiscordConfiguration instance.
+         */
+        public static function getDefaultDiscordConfiguration(): DiscordConfiguration
+        {
+            if(self::$defaultDiscordConfiguration === null)
+            {
+                self::$defaultDiscordConfiguration = new DiscordConfiguration();
+
+                // Apply environment variables to the default DiscordConfiguration instance.
+                if(getenv('LOGLIB_DISCORD_ENABLED') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setEnabled(filter_var(getenv('LOGLIB_DISCORD_ENABLED'), FILTER_VALIDATE_BOOLEAN));
+                }
+
+                if(getenv('LOGLIB_DISCORD_WEBHOOK_URL') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setWebhookUrl(getenv('LOGLIB_DISCORD_WEBHOOK_URL'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_THREAD_ID') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setThreadId(getenv('LOGLIB_DISCORD_THREAD_ID'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_USERNAME') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setUsername(getenv('LOGLIB_DISCORD_USERNAME'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_AVATAR_URL') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setAvatarUrl(getenv('LOGLIB_DISCORD_AVATAR_URL'));
+                }
+
+                if(getenv('LOGLIB_DISCORD_LOG_LEVEL') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setLogLevel(LogLevel::parseFrom(getenv('LOGLIB_DISCORD_LOG_LEVEL')));
+                }
+
+                if(getenv('LOGLIB_DISCORD_TRACE_FORMAT') !== false)
+                {
+                    self::$defaultDiscordConfiguration->setTraceFormat(TraceFormat::parseFrom(getenv('LOGLIB_DISCORD_TRACE_FORMAT')));
+                }
+            }
+
+            return self::$defaultDiscordConfiguration;
         }
 
         /**
