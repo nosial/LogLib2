@@ -22,6 +22,7 @@
         private static array $failedTargets = [];
         private static bool $sending = false;
         private static ?int $lastReplyCode = null;
+        private static float $deadline = 0.0;
 
         /**
          * Checks if the email configuration has a valid sender, at least one valid recipient and an SMTP host set.
@@ -30,6 +31,11 @@
          */
         public static function isAvailable(Application $application): bool
         {
+            if(!extension_loaded('mbstring'))
+            {
+                return false;
+            }
+
             $configuration = $application->getEmailConfiguration();
             if(empty($configuration->getHost()) || $configuration->getPort() <= 0)
             {
@@ -108,6 +114,10 @@
         {
             self::$lastReplyCode = null;
 
+            // The timeout applies to the whole SMTP session rather than each reply, so a slow server cannot block the
+            // log call for longer than the configured timeout (plus connecting) or run into max_execution_time.
+            self::$deadline = microtime(true) + $configuration->getTimeout();
+
             $context = stream_context_create(['ssl' => [
                 'peer_name' => $configuration->getHost(),
                 'verify_peer' => $configuration->isVerifyPeer(),
@@ -125,8 +135,6 @@
             {
                 return false;
             }
-
-            stream_set_timeout($socket, $configuration->getTimeout());
 
             try
             {
@@ -297,6 +305,11 @@
          */
         private static function write($socket, string $line): bool
         {
+            if(!self::applyDeadline($socket))
+            {
+                return false;
+            }
+
             $data = $line . "\r\n";
             $length = strlen($data);
 
@@ -314,6 +327,25 @@
         }
 
         /**
+         * Limits the next socket operation to the time remaining until the session deadline.
+         *
+         * @param resource $socket The SMTP connection.
+         * @return bool True if time remains, false if the deadline has passed.
+         */
+        private static function applyDeadline($socket): bool
+        {
+            $remaining = self::$deadline - microtime(true);
+            if($remaining <= 0)
+            {
+                self::$lastReplyCode = null;
+                return false;
+            }
+
+            stream_set_timeout($socket, (int)$remaining, (int)(($remaining - (int)$remaining) * 1000000));
+            return true;
+        }
+
+        /**
          * Reads a (possibly multi-line) reply from the SMTP connection and stores its reply code.
          *
          * @param resource $socket The SMTP connection.
@@ -322,7 +354,7 @@
         private static function read($socket): ?array
         {
             $lines = [];
-            while(($line = @fgets($socket, 4096)) !== false)
+            while(self::applyDeadline($socket) && ($line = @fgets($socket, 4096)) !== false)
             {
                 $lines[] = rtrim($line, "\r\n");
 
