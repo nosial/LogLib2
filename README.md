@@ -92,7 +92,7 @@ We do encourage community support and discussions, please be respectful and foll
 
 ## Installation
 
-To install LogLib2, you can add the project as a dependency to your project.json file, for example
+To install LogLib2, you can add the project as a dependency to your project.yml file, for example
 
 From the n64 repository
 ```yaml
@@ -111,7 +111,7 @@ repository you want to install from, you may also use the `--build-source` flag 
 source rather than downloading a pre-built package if one is available.
 
 ```bash
-ncc --install=nosial/loglib2=latest@github
+ncc install nosial/loglib2=latest@github
 ```
 
 
@@ -127,22 +127,22 @@ To compile the library, you can use the following command
 make all
 ```
 
-To compile the library in `release` mode, you can use the following command
+To compile only the library in `release` mode, you can use the following command
 
 ```bash
-make release
+make target/release/net.nosial.loglib2.ncc
 ```
 
 You may also compile manually using the following commands
 
 ```bash
-ncc build --config=release
+ncc build --configuration=release
 ```
 
 To install the library, you can use the following command
 
 ```bash
-ncc --install=build/release/net.nosial.loglib2.ncc --reinstall -y
+ncc install target/release/net.nosial.loglib2.ncc --reinstall -y
 ```
 
 ------------------------------------------------------------------------------------------------------------------------
@@ -366,10 +366,9 @@ be specified, this is used to identify the application that generated the log ev
 
 ```php
 $logger = new \LogLib2\Logger('com.example.myapp');
-
-// Or specify the log level filter
-$logger = new \LogLib2\Logger('com.example.myapp', \LogLib2\LogLevel::DEBUG);
 ```
+
+The log level filter is not set per logger, it applies to the whole process, see [Log Filtering](#log-filtering).
 
 The logger instance is designed to be statically defined, this means that you can define the logger instance as a static
 variable in your application and use it throughout your application, this is to prevent the need to create a new logger
