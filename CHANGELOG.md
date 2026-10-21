@@ -11,6 +11,8 @@ This is an ongoing update
 
 ### Changed
  - Updated the project to use ncc 3.1.11
+ - The log level is now checked before an event is created, so log calls filtered out by the environment log level
+   no longer capture a full backtrace
 
 
 
