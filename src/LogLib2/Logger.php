@@ -96,6 +96,11 @@
         {
             try
             {
+                if(!self::levelAllowed(LogLevel::DEBUG))
+                {
+                    return;
+                }
+
                 $this->handleEvent($this->createEvent(LogLevel::DEBUG, $message));
             }
             catch(Throwable $t)
@@ -113,6 +118,11 @@
         {
             try
             {
+                if(!self::levelAllowed(LogLevel::VERBOSE))
+                {
+                    return;
+                }
+
                 $this->handleEvent($this->createEvent(LogLevel::VERBOSE, $message));
             }
             catch(Throwable $t)
@@ -130,6 +140,11 @@
         {
             try
             {
+                if(!self::levelAllowed(LogLevel::INFO))
+                {
+                    return;
+                }
+
                 $this->handleEvent($this->createEvent(LogLevel::INFO, $message));
             }
             catch(Throwable $t)
@@ -147,6 +162,11 @@
         {
             try
             {
+                if(!self::levelAllowed(LogLevel::WARNING))
+                {
+                    return;
+                }
+
                 $this->handleEvent($this->createEvent(LogLevel::WARNING, $message, $e));
             }
             catch(Throwable $t)
@@ -164,6 +184,11 @@
         {
             try
             {
+                if(!self::levelAllowed(LogLevel::ERROR))
+                {
+                    return;
+                }
+
                 $this->handleEvent($this->createEvent(LogLevel::ERROR, $message, $e));
             }
             catch(Throwable $t)
@@ -181,6 +206,11 @@
         {
             try
             {
+                if(!self::levelAllowed(LogLevel::CRITICAL))
+                {
+                    return;
+                }
+
                 $this->handleEvent($this->createEvent(LogLevel::CRITICAL, $message, $e));
             }
             catch(Throwable $t)
@@ -197,6 +227,18 @@
         private function createEvent(LogLevel $level, string $message, null|ExceptionDetails|Throwable $e=null): Event
         {
             return new Event($this->application->getName(), $level, $message, Utilities::getBackTrace(Logger::getBacktraceLevel()), time(), $e);
+        }
+
+        /**
+         * Checks whether the given log level is allowed by the environment log level, resolving it once per process.
+         *
+         * @param LogLevel $level The log level to check.
+         * @return bool True if events of the given level should be handled.
+         */
+        private static function levelAllowed(LogLevel $level): bool
+        {
+            self::$environmentLogLevel ??= Utilities::getEnvironmentLogLevel();
+            return self::$environmentLogLevel->levelAllowed($level);
         }
 
         /**
@@ -218,12 +260,7 @@
 
             try
             {
-                if(self::$environmentLogLevel === null)
-                {
-                    self::$environmentLogLevel = Utilities::getEnvironmentLogLevel();
-                }
-
-                if(!self::$environmentLogLevel->levelAllowed($event->getLevel()))
+                if(!self::levelAllowed($event->getLevel()))
                 {
                     return;
                 }
