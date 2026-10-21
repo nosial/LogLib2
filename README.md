@@ -40,7 +40,7 @@ We do encourage community support and discussions, please be respectful and foll
 ## Table of Contents
 
 <!-- TOC -->
-* [LogLib2](#loglib2)
+* [<picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon/loglib2_light.svg"><img src="assets/icon/loglib2_dark.svg" alt="LogLib2" width="32" height="32"></picture> LogLib2](#picturesource-mediaprefers-color-scheme-dark-srcsetassetsiconloglib2_lightsvgimg-srcassetsiconloglib2_darksvg-altloglib2-width32-height32picture-loglib2)
   * [Community](#community)
   * [Table of Contents](#table-of-contents)
   * [Installation](#installation)
