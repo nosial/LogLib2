@@ -1,0 +1,11 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M80 0C76.001 0 72.002 1.51978 68.7228 4.71944L4.73883 68.7113C-1.57961 74.9506 -1.57961 85.0293 4.73883 91.2685L68.7228 155.261C74.9613 161.58 85.0388 161.58 91.2772 155.261L155.261 91.2685C161.58 85.0293 161.58 74.9506 155.261 68.7113L91.2772 4.71944C87.998 1.51978 83.999 0 80 0Z" fill="#111111"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M50 44L57 51L50 58L43 51Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M64 46L116 46L116 56L64 56Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M50 62L57 69L50 76L43 69Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M64 64L104 64L104 74L64 74Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M50 80L57 87L50 94L43 87Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M64 82L112 82L112 92L64 92Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M50 98L57 105L50 112L43 105Z" fill="#EEEEEE"/>
+<path fill-rule="evenodd" clip-rule="evenodd" d="M64 100L92 100L92 110L64 110Z" fill="#EEEEEE"/>
+</svg>

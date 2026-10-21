@@ -1,4 +1,4 @@
-# LogLib2
+# <picture><source media="(prefers-color-scheme: dark)" srcset="assets/icon/loglib2_light.svg"><img src="assets/icon/loglib2_dark.svg" alt="LogLib2" width="32" height="32"></picture> LogLib2
 
 LogLib2 is a lightweight logging library for php/ncc projects. This is the successor of the original LogLib library, due
 to the many changes in the project structure, it is recommended to use this library instead of the original one.

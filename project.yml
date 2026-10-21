@@ -10,6 +10,13 @@ assembly:
   name: LogLib2
   package: net.nosial.loglib2
   version: 1.0.8
+  url: 'https://github.com/nosial/LogLib2'
+  license: 'MIT'
+  description: 'A logging library for php/ncc to log events in PHP applications'
+  author: 'Netkas <netkas@nosial.net>'
+  organization: 'Nosial'
+  product: 'Libraries'
+  copyright: 'Copyright (c) 2022-2026 Nosial'
 dependencies:
   net.nosial.optslib: nosial/optslib@github
 build_configurations:
