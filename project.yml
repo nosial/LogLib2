@@ -9,7 +9,7 @@ repository:
 assembly:
   name: LogLib2
   package: net.nosial.loglib2
-  version: 1.0.8
+  version: 1.0.9
   url: 'https://github.com/nosial/LogLib2'
   license: 'MIT'
   description: 'A logging library for php/ncc to log events in PHP applications'
