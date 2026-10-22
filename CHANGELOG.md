@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This is an ongoing update
 
 ### Changed
+ - Removed the duplicate legacy Forgejo build workflow; the current ncc workflow also handles pull requests.
+ - Included the project's light and dark icons from NosialFrontier in the README header.
  - Updated the project to use ncc 3.1.11
  - The log level is now checked before an event is created, so log calls filtered out by the environment log level
    no longer capture a full backtrace
